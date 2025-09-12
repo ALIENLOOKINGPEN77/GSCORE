@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase/client";
 import { useAuth } from "../components/auth-context";
@@ -33,7 +33,8 @@ function mapFirebaseAuthError(err: unknown): string {
 
 const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
-export default function LoginPage() {
+// Separate component that uses useSearchParams
+function LoginForm() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -144,5 +145,23 @@ export default function LoginPage() {
         No sign-up here — users are created internally via Firebase Console.
       </p>
     </main>
+  );
+}
+
+// Loading fallback component
+function LoginLoading() {
+  return (
+    <div className="w-full h-[60vh] grid place-items-center">
+      <p>Loading...</p>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
   );
 }
