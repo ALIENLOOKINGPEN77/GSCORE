@@ -14,24 +14,24 @@ import { db } from "../lib/firebase/client";
 // Dynamic module discovery using webpack's require.context
 function getAvailableModuleFiles(): Record<string, () => Promise<any>> {
   const moduleFiles: Record<string, () => Promise<any>> = {};
-  
+
   try {
     // Use require.context to get all .tsx files in components/modules
     const context = require.context('../components/modules', false, /\.tsx$/);
-    
+
     context.keys().forEach((filePath: string) => {
       // Extract filename without extension (e.g., "./ECOM01.tsx" -> "ECOM01")
       const moduleName = filePath.replace('./', '').replace('.tsx', '').toUpperCase();
-      
+
       // Create dynamic import function
       moduleFiles[moduleName] = () => import(`../components/modules/${moduleName}`);
     });
-    
+
     console.log('[Menu] Discovered module files:', Object.keys(moduleFiles));
   } catch (error) {
     console.warn('[Menu] Could not discover modules dynamically:', error);
   }
-  
+
   return moduleFiles;
 }
 
@@ -74,7 +74,7 @@ const checkUserAccess = async (moduleCode: string): Promise<boolean> => {
 
     const hasAccess = moduleAccess.includes(moduleCode);
     console.log("[Menu] Access check result:", hasAccess, "Available modules:", moduleAccess);
-    
+
     return hasAccess;
   } catch (error) {
     console.error("[Menu] Error checking user access:", error);
@@ -136,6 +136,8 @@ export default function MenuPage() {
   // Get available module files (this runs once at component mount)
   const availableModuleFiles = useMemo(() => getAvailableModuleFiles(), []);
 
+
+
   // Set random background image on mount
   useEffect(() => {
     const randomBg = getRandomBackgroundImage();
@@ -150,6 +152,16 @@ export default function MenuPage() {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
+
+  // Add this useEffect right after the background image useEffect
+  useEffect(() => {
+    const m = searchParams.get("m");
+    if (m) {
+      console.log("[Menu] Page reload detected with module parameter, redirecting to clean URL");
+      // Clear the URL parameter and redirect
+      router.replace("/menu");
+    }
+  }, []); // Empty dependency array ensures this only runs once on mount
 
   // Cleanup timer
   useEffect(() => {
@@ -186,12 +198,12 @@ export default function MenuPage() {
     try {
       setIsLoadingModule(true);
       console.log(`[Menu] Dynamically importing module: ${code}`);
-      
+
       const moduleExport = await availableModuleFiles[code]();
-      
+
       // Try to get the component in different ways
       let ModuleComponent = moduleExport.default || moduleExport;
-      
+
       // If ModuleComponent is still an object, try to extract the component
       if (typeof ModuleComponent === 'object' && ModuleComponent !== null) {
         // Check if it has a default property
@@ -203,13 +215,13 @@ export default function MenuPage() {
           ModuleComponent = ModuleComponent[code];
         }
       }
-      
+
       // Validate that we have a valid React component
       if (!isValidReactComponent(ModuleComponent)) {
         console.warn(`[Menu] Module ${code} does not export a valid React component:`, typeof ModuleComponent, ModuleComponent);
         return null;
       }
-      
+
       console.log(`[Menu] Successfully loaded module: ${code}`);
       return ModuleComponent;
     } catch (error) {
@@ -254,7 +266,7 @@ export default function MenuPage() {
         return;
       }
 
-      
+
       if (!availableModuleFiles[code]) {
         showToast(`Module not developed yet: ${code}`);
         setActiveCode(null);
@@ -265,7 +277,7 @@ export default function MenuPage() {
       // Case (4): exists and has file - try to load it
       console.log("[Menu] Loading module from URL:", code);
       const ModuleComponent = await loadModule(code);
-      
+
       if (!ModuleComponent) {
         showToast(`Module not developed yet: ${code}`);
         setActiveCode(null);
@@ -285,7 +297,7 @@ export default function MenuPage() {
 
     setIsFakeLoading(true);
     setLogoVisible(false);
-    
+
     requestAnimationFrame(() => {
       setLogoVisible(true);
     });
@@ -338,7 +350,7 @@ export default function MenuPage() {
 
       // Case (4): Try to load the module
       console.log("[Menu] Loading module:", code);
-      
+
       // Clear current module for loading overlay
       setActiveCode(null);
       setActiveModuleComponent(null);
@@ -353,7 +365,7 @@ export default function MenuPage() {
 
       // Load the module
       const ModuleComponent = await loadModule(code);
-      
+
       if (!ModuleComponent) {
         showToast(`Module not developed yet: ${code}`);
         return;
@@ -394,11 +406,11 @@ export default function MenuPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen bg-gray-50 text-gray-800">
+      <div className="flex h-screen bg-gray-50 text-gray-800 overflow-hidden">
         {/* Sidebar - Fixed position */}
-        <aside className="fixed left-0 top-0 w-72 h-screen bg-white flex flex-col border-r border-gray-200 shadow-sm z-10">
+        <aside className="w-72 h-full bg-white flex flex-col border-r border-gray-200 shadow-sm shrink-0">
           {/* Logo */}
-          <div className="ml-4 p-6 border-b border-gray-200">
+          <div className="ml-4 p-6 border-b border-gray-200 shrink-0">
             <Image
               src="/logo.png"
               alt="ERP System Logo"
@@ -410,7 +422,7 @@ export default function MenuPage() {
           </div>
 
           {/* Search Bar */}
-          <div className="p-4">
+          <div className="p-4 shrink-0">
             <form className="relative" onSubmit={handleSubmit}>
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -431,35 +443,20 @@ export default function MenuPage() {
             <p className="mt-2 text-xs text-gray-500">
               Pulse Enter para abrir el módulo.
             </p>
-            {/* Show available modules info */}
-            <div className="mt-2 text-xs text-gray-400">
-              <p>Modules in Firebase: {availableSet ? availableSet.size : "Loading..."}</p>
-              <p>Module files found: {Object.keys(availableModuleFiles).length}</p>
-            </div>
           </div>
 
           {/* Sidebar body (placeholder) */}
-          <div className="flex-grow p-4">
+          <div className="flex-1 p-4 overflow-hidden">
             <div className="bg-gray-100 h-full rounded-md">
               {/* You could show discovered modules here */}
               <div className="p-2">
-                <h3 className="text-xs font-medium text-gray-600 mb-2">Available Files:</h3>
-                <div className="text-xs text-gray-500 space-y-1">
-                  {Object.keys(availableModuleFiles).map(code => (
-                    <div key={code} className="flex justify-between">
-                      <span>{code}</span>
-                      <span className={availableSet?.has(code) ? "text-green-600" : "text-red-600"}>
-                        {availableSet?.has(code) ? "✓" : "✗"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+
               </div>
             </div>
           </div>
 
           {/* Footer + Logout */}
-          <div className="p-4 text-center text-xs text-gray-400 border-t border-gray-200">
+          <div className="p-4 text-center text-xs text-gray-400 border-t border-gray-200 shrink-0">
             <p>&copy; {new Date().getFullYear()} GS CONCRETOS S.A</p>
             <button
               onClick={handleLogout}
@@ -470,12 +467,12 @@ export default function MenuPage() {
           </div>
         </aside>
 
-        {/* Right Panel - Account for fixed sidebar */}
-        <main className="flex-1 relative ml-72">
-          {/* Loading overlay */}
+        {/* Main Content Area - Now uses flex-1 and proper overflow handling */}
+        <main className="flex-1 flex flex-col min-w-0 relative">
+          {/* Loading overlay - Positioned absolute to cover entire main area */}
           {(isFakeLoading || isLoadingModule) && (
             <div
-              className="absolute inset-0 grid place-items-center bg-white z-20"
+              className="absolute inset-0 flex items-center justify-center bg-white z-50"
               aria-live="polite"
               role="status"
             >
@@ -484,19 +481,19 @@ export default function MenuPage() {
                 alt="Loading"
                 width={220}
                 height={80}
-                className={`transition-opacity duration-300 ${
-                  (logoVisible || isLoadingModule) ? "opacity-100" : "opacity-0"
-                }`}
+                className={`transition-opacity duration-300 ${(logoVisible || isLoadingModule) ? "opacity-100" : "opacity-0"
+                  }`}
                 priority
                 style={{ objectFit: "contain", width: "auto", height: "auto" }}
               />
             </div>
           )}
 
+          {/* Content - Either module or background */}
           {ActiveModuleComponent ? (
-            <div className="h-full w-full bg-white">
-              {/* Module header */}
-              <div className="border-b px-4 py-2 flex items-center justify-between bg-gray-50">
+            <div className="flex-1 flex flex-col bg-white min-h-0">
+              {/* Module header - Always visible at top */}
+              <header className="bg-gray-50 border-b px-4 py-2 flex items-center justify-between shrink-0">
                 <span className="text-sm text-gray-600">
                   Active module: <strong>{activeCode}</strong>
                 </span>
@@ -506,9 +503,10 @@ export default function MenuPage() {
                 >
                   Close
                 </button>
-              </div>
-              {/* Render the dynamically loaded module with error boundary */}
-              <div className="h-full overflow-auto">
+              </header>
+
+              {/* Module content - This is the ONLY scrollable area */}
+              <div className="flex-1 overflow-auto">
                 {React.isValidElement(ActiveModuleComponent) ? (
                   ActiveModuleComponent
                 ) : (
@@ -518,7 +516,7 @@ export default function MenuPage() {
             </div>
           ) : (
             <div
-              className="w-full h-full bg-cover bg-center bg-no-repeat brightness-100"
+              className="flex-1 bg-cover bg-center bg-no-repeat brightness-100"
               style={{ backgroundImage: `url('${backgroundImage}')` }}
             />
           )}

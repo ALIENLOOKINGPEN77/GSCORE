@@ -1,10 +1,10 @@
 // /app/layout.tsx
 // Wraps the whole app with AuthProvider so any page can read auth state.
 // Keep your fonts and global styles as you already had.
-
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "./components/auth-context";
+import 'reactflow/dist/style.css';   
 
 export const metadata: Metadata = {
   title: "My ERP System",

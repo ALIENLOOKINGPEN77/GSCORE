@@ -38,7 +38,7 @@ export async function fetchUserModulesByEmail(_email: string): Promise<Set<strin
   // Example shape (uncomment & adapt when ready):
   // const ref = doc(db, "access", "modules_by_user");
   // const snap = await getDoc(ref);
-  // if (!snap.exists()) return null;
+  // if (!snap.exists()) return null;git push -u origin main
   // const list = snap.data()?.[_email] ?? [];
   // return new Set(list.map((s: string) => s.toUpperCase()));
   console.log("[modules] fetchUserModulesByEmail() not wired yet (stub).");
