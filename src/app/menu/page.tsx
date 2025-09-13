@@ -1,3 +1,7 @@
+// /app/menu/page.tsx
+// Enhanced menu page with role-based access control
+// This replaces your existing database queries with token-based permission checking
+
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +11,8 @@ import Protected from "../components/protected";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase/client";
-import { fetchAvailableModules } from "../lib/firebase/modules";
+import { useAuth, useRoles } from "../components/auth-context";
+import { fetchAvailableModulesCompat } from "../lib/firebase/roles";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase/client";
 
@@ -35,51 +40,27 @@ function getAvailableModuleFiles(): Record<string, () => Promise<any>> {
   return moduleFiles;
 }
 
-// Function to check user access to a specific module
-const checkUserAccess = async (moduleCode: string): Promise<boolean> => {
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser || !currentUser.email) {
-      console.log("[Menu] No authenticated user found");
-      return false;
-    }
+// Enhanced access checking using the new role-based system
+const checkUserModuleAccess = (
+  hasModuleAccess: (module: string, level?: 'r' | 'rw' | 'admin') => boolean,
+  isAdmin: boolean,
+  moduleCode: string
+): boolean => {
+  console.log(`[Menu] Checking access for module: ${moduleCode}`, {
+    isAdmin,
+    hasAccess: hasModuleAccess(moduleCode)
+  });
 
-    console.log("[Menu] Checking access for user:", currentUser.email, "module:", moduleCode);
-
-    // Get the users_parameters document
-    const userParamsRef = doc(db, "defaults", "users_parameters");
-    const userParamsSnap = await getDoc(userParamsRef);
-
-    if (!userParamsSnap.exists()) {
-      console.log("[Menu] users_parameters document not found");
-      return false;
-    }
-
-    const userParamsData = userParamsSnap.data();
-    const userEmail = currentUser.email;
-
-    // Check if user exists in the parameters
-    if (!userParamsData[userEmail]) {
-      console.log("[Menu] User not found in parameters:", userEmail);
-      return false;
-    }
-
-    const userData = userParamsData[userEmail];
-    const moduleAccess = userData.module_access;
-
-    if (!Array.isArray(moduleAccess)) {
-      console.log("[Menu] module_access is not an array for user:", userEmail);
-      return false;
-    }
-
-    const hasAccess = moduleAccess.includes(moduleCode);
-    console.log("[Menu] Access check result:", hasAccess, "Available modules:", moduleAccess);
-
-    return hasAccess;
-  } catch (error) {
-    console.error("[Menu] Error checking user access:", error);
-    return false;
+  // Admin users have access to everything
+  if (isAdmin) {
+    console.log(`[Menu] Admin access granted for ${moduleCode}`);
+    return true;
   }
+
+  // Check if user has access to this specific module
+  const hasAccess = hasModuleAccess(moduleCode);
+  console.log(`[Menu] Module ${moduleCode} access result:`, hasAccess);
+  return hasAccess;
 };
 
 // Background images array
@@ -108,11 +89,15 @@ const isValidReactComponent = (component: any): component is React.ComponentType
 export default function MenuPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Use the enhanced auth context with role information
+  const { user, isAdmin, hasModuleAccess, permissions, refreshPermissions } = useAuth();
+  const { userRoleLabel } = useRoles();
 
   // Search input
   const [query, setQuery] = useState("");
 
-  // Available modules from Firestore
+  // Available modules from role-based system
   const [availableSet, setAvailableSet] = useState<Set<string> | null>(null);
 
   // Currently active module code and component
@@ -136,8 +121,6 @@ export default function MenuPage() {
   // Get available module files (this runs once at component mount)
   const availableModuleFiles = useMemo(() => getAvailableModuleFiles(), []);
 
-
-
   // Set random background image on mount
   useEffect(() => {
     const randomBg = getRandomBackgroundImage();
@@ -153,12 +136,11 @@ export default function MenuPage() {
     hideTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Add this useEffect right after the background image useEffect
+  // Handle URL parameter on page load
   useEffect(() => {
     const m = searchParams.get("m");
     if (m) {
       console.log("[Menu] Page reload detected with module parameter, redirecting to clean URL");
-      // Clear the URL parameter and redirect
       router.replace("/menu");
     }
   }, []); // Empty dependency array ensures this only runs once on mount
@@ -170,23 +152,44 @@ export default function MenuPage() {
     };
   }, []);
 
-  // Load available modules from Firestore on mount
+  // Load available modules from the new role-based system
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    
+    const loadModules = async () => {
       try {
-        const s = await fetchAvailableModules();
-        if (mounted) setAvailableSet(s);
+        console.log('[Menu] Loading modules for user role:', userRoleLabel);
+        console.log('[Menu] User permissions:', permissions);
+        
+        if (isAdmin) {
+          console.log('[Menu] User is admin - loading all modules');
+          // For admin users, load all available modules
+          const allModules = await fetchAvailableModulesCompat(permissions);
+          if (mounted) setAvailableSet(allModules);
+        } else {
+          console.log('[Menu] User is not admin - loading assigned modules');
+          // For regular users, use their assigned modules
+          const userModules = permissions.modules || {};
+          const moduleSet = new Set(Object.keys(userModules).map(m => m.toUpperCase()));
+          console.log('[Menu] User assigned modules:', Array.from(moduleSet));
+          if (mounted) setAvailableSet(moduleSet);
+        }
       } catch (err) {
-        console.warn("[Menu] fetchAvailableModules failed:", err);
+        console.warn("[Menu] Error loading modules:", err);
         showToast("Could not load available modules. Try again later.");
         if (mounted) setAvailableSet(new Set());
       }
-    })();
+    };
+
+    // Only load modules if we have user permissions
+    if (permissions && Object.keys(permissions).length > 0) {
+      loadModules();
+    }
+    
     return () => {
       mounted = false;
     };
-  }, [showToast]);
+  }, [permissions, isAdmin, userRoleLabel, showToast]);
 
   // Dynamic module loader with better error handling
   const loadModule = useCallback(async (code: string): Promise<React.ComponentType<any> | null> => {
@@ -206,12 +209,9 @@ export default function MenuPage() {
 
       // If ModuleComponent is still an object, try to extract the component
       if (typeof ModuleComponent === 'object' && ModuleComponent !== null) {
-        // Check if it has a default property
         if (ModuleComponent.default) {
           ModuleComponent = ModuleComponent.default;
-        }
-        // Check if it has the same name as the code
-        else if (ModuleComponent[code]) {
+        } else if (ModuleComponent[code]) {
           ModuleComponent = ModuleComponent[code];
         }
       }
@@ -249,24 +249,24 @@ export default function MenuPage() {
 
     // Load the module asynchronously
     (async () => {
-      // Case (1): code not in Firestore list
+      // Case (1): code not in available modules
       if (!availableSet.has(code)) {
-        showToast(`Code "${code}" does not exist.`);
+        showToast(`Code "${code}" does not exist or is not available for your role.`);
         setActiveCode(null);
         setActiveModuleComponent(null);
         return;
       }
 
-      // Case (2): Check user access
-      const hasAccess = await checkUserAccess(code);
+      // Case (2): Check user access using new role-based system
+      const hasAccess = checkUserModuleAccess(hasModuleAccess, isAdmin, code);
       if (!hasAccess) {
-        showToast("Access Denied");
+        showToast("Access Denied - Insufficient permissions for this module");
         setActiveCode(null);
         setActiveModuleComponent(null);
         return;
       }
 
-
+      // Case (3): Module exists but no file available
       if (!availableModuleFiles[code]) {
         showToast(`Module not developed yet: ${code}`);
         setActiveCode(null);
@@ -288,7 +288,7 @@ export default function MenuPage() {
       setActiveCode(code);
       setActiveModuleComponent(() => ModuleComponent);
     })();
-  }, [searchParams, availableSet, availableModuleFiles, showToast, loadModule]);
+  }, [searchParams, availableSet, availableModuleFiles, showToast, loadModule, hasModuleAccess, isAdmin]);
 
   // Fake loading function
   const fakeLoad = useCallback(async () => {
@@ -312,7 +312,7 @@ export default function MenuPage() {
     console.log("[Menu] Fake load end");
   }, []);
 
-  // Handle search submit with dynamic module loading and access control
+  // Handle search submit with role-based access control
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
@@ -320,7 +320,7 @@ export default function MenuPage() {
       console.log("[Menu] Submitting T-Code:", code);
 
       if (!code) {
-        showToast('Enter a T-Code (try "ECOM01" or "TEST01").');
+        showToast('Enter a T-Code (try "ECOM01", "TCOM01", or "ADM01").');
         return;
       }
 
@@ -329,16 +329,16 @@ export default function MenuPage() {
         return;
       }
 
-      // Case (1): Not in Firebase list
+      // Case (1): Not available for user's role
       if (!availableSet.has(code)) {
-        showToast(`Code "${code}" does not exist.`);
+        showToast(`Code "${code}" does not exist or is not available for your role.`);
         return;
       }
 
-      // Case (2): Check user access FIRST
-      const hasAccess = await checkUserAccess(code);
+      // Case (2): Check user access with new role-based system
+      const hasAccess = checkUserModuleAccess(hasModuleAccess, isAdmin, code);
       if (!hasAccess) {
-        showToast("Access Denied");
+        showToast("Access Denied - Insufficient permissions for this module");
         return;
       }
 
@@ -375,7 +375,7 @@ export default function MenuPage() {
       setActiveCode(code);
       setActiveModuleComponent(() => ModuleComponent);
     },
-    [query, availableSet, availableModuleFiles, router, showToast, fakeLoad, loadModule]
+    [query, availableSet, availableModuleFiles, router, showToast, fakeLoad, loadModule, hasModuleAccess, isAdmin]
   );
 
   // Enter key = submit
@@ -401,6 +401,19 @@ export default function MenuPage() {
       console.log("[Menu] Signed out successfully");
     } catch {
       console.log("[Menu] Sign out failed (handled silently).");
+    }
+  };
+
+  // Handle permission refresh
+  const handleRefreshPermissions = async () => {
+    console.log("[Menu] Refreshing permissions...");
+    showToast("Actualizando permisos...");
+    try {
+      await refreshPermissions();
+      showToast("Permisos actualizados correctamente");
+    } catch (error) {
+      console.error("[Menu] Error refreshing permissions:", error);
+      showToast("Error al actualizar permisos");
     }
   };
 
@@ -431,7 +444,7 @@ export default function MenuPage() {
               />
               <input
                 type="text"
-                placeholder='Search modules / T-Codes (try "ECOM01" or "TEST01")'
+                placeholder='Search modules / T-Codes (try "ECOM01", "TCOM01", or "ADM01")'
                 className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -445,13 +458,55 @@ export default function MenuPage() {
             </p>
           </div>
 
-          {/* Sidebar body (placeholder) */}
-          <div className="flex-1 p-4 overflow-hidden">
-            <div className="bg-gray-100 h-full rounded-md">
-              {/* You could show discovered modules here */}
-              <div className="p-2">
-
+          {/* User Role Information */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="bg-blue-50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${isAdmin ? 'bg-red-500' : 'bg-blue-500'}`}>
+                  {isAdmin ? 'A' : 'U'}
+                </div>
+                <span className="text-sm font-medium text-gray-700">
+                  {userRoleLabel || 'Sin rol asignado'}
+                </span>
               </div>
+              {availableSet && (
+                <p className="text-xs text-gray-600">
+                  {isAdmin ? 'Acceso completo' : `${availableSet.size} módulos disponibles`}
+                </p>
+              )}
+              <button
+                onClick={handleRefreshPermissions}
+                className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Actualizar permisos
+              </button>
+            </div>
+          </div>
+
+          {/* Sidebar body */}
+          <div className="flex-1 p-4 overflow-hidden">
+            <div className="bg-gray-100 h-full rounded-md p-3">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Módulos Rápidos</h3>
+              {isAdmin && (
+                <button
+                  onClick={() => handleSubmit({ preventDefault: () => {}, target: { value: 'ADM01' } } as any)}
+                  className="w-full text-left text-sm text-gray-600 hover:text-gray-800 py-1 px-2 rounded hover:bg-gray-200 transition-colors"
+                >
+                  ADM01 - Administración
+                </button>
+              )}
+              <button
+                onClick={() => handleSubmit({ preventDefault: () => {}, target: { value: 'ECOM01' } } as any)}
+                className="w-full text-left text-sm text-gray-600 hover:text-gray-800 py-1 px-2 rounded hover:bg-gray-200 transition-colors"
+              >
+                ECOM01 - Entrada Combustible
+              </button>
+              <button
+                onClick={() => handleSubmit({ preventDefault: () => {}, target: { value: 'TCOM01' } } as any)}
+                className="w-full text-left text-sm text-gray-600 hover:text-gray-800 py-1 px-2 rounded hover:bg-gray-200 transition-colors"
+              >
+                TCOM01 - Consulta Entradas
+              </button>
             </div>
           </div>
 
