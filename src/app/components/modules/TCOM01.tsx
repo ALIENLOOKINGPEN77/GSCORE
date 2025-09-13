@@ -436,7 +436,7 @@ export default function TCOM01Module() {
             <CheckCircle className="text-green-600" size={24} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">
-            TCOM01 – Entradas de Combustible Hoy
+            TCOM01 – Entradas de Combustible
           </h1>
         </div>
         <p className="text-gray-600">

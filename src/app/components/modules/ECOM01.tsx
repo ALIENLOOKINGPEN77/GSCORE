@@ -77,7 +77,7 @@ const parseTime = (timeStr: string): { hours: number; minutes: number } | null =
 // QR Code component using a simple external service
 const QRCodeDisplay = ({ value, size = 200 }: { value: string; size?: number }) => (
   <img
-    src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}`}
+    src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&ecc=Q`}
     alt="QR Code"
     className="rounded-lg border"
     width={size}

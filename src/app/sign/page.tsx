@@ -155,18 +155,16 @@ function SigningPageContent() {
               <h1 className="text-xl font-semibold text-gray-800">
                 Firma de Documento
               </h1>
-              <p className="text-gray-600">ECOM01 – Entrada de Combustible</p>
+              <p className="text-gray-600">Entrada de Combustible</p>
             </div>
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-2">
-              <Smartphone className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
                 <p className="text-blue-800 font-medium text-sm">Instrucciones</p>
                 <p className="text-blue-700 text-sm">
-                  Por favor firme en el área designada usando su dedo o un stylus. 
-                  Su firma será asociada al documento correspondiente.
+                  Por favor firme en el área designada.
                 </p>
               </div>
             </div>
@@ -174,7 +172,7 @@ function SigningPageContent() {
         </div>
 
         {/* Signature Pad */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-white rounded-lg shadow-lg p-4">
           <SignaturePad
             onSave={handleSignatureSave}
             disabled={state === 'saving'}

@@ -151,11 +151,10 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
       <div className="flex items-center gap-2 text-gray-700">
-        <Edit3 size={20} />
         <span className="font-medium">Firma Digital</span>
       </div>
       
-      <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 bg-white">
+      <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-0.5 bg-white">
         <canvas
           ref={canvasRef}
           width={canvasWidth}
@@ -179,7 +178,7 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
         {!hasSignature && !disabled && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-gray-400 text-sm">
-              Firme aquí con su dedo o stylus
+              Firme aquí
             </span>
           </div>
         )}
