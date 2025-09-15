@@ -431,7 +431,7 @@ export default function MenuPage() {
               />
               <input
                 type="text"
-                placeholder='Search modules / T-Codes (try "ECOM01" or "TEST01")'
+                placeholder='Búsqueda de Módulos'
                 className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
