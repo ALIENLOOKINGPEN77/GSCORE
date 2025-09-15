@@ -8,8 +8,8 @@ import { ClientSuspenseWrapper } from "./components/ClientSuspenseWrapper";
 import 'reactflow/dist/style.css';   
 
 export const metadata: Metadata = {
-  title: "My ERP System",
-  description: "The main dashboard for the ERP system.",
+  title: "GS CORE - ERP",
+  description: "Gs core es un sistema ERP diseñado para la facilidad de uso y cumplimiento de la ISO 9001 en los procesos de gs concretos S.A",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

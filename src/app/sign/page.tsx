@@ -5,11 +5,12 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, deleteUser } from 'firebase/auth';
 import { CheckCircle, AlertCircle, Smartphone, FileText } from 'lucide-react';
 import { auth } from '../lib/firebase/client';
 import { getEntryDocument, updateSignature, type ECOM01Document, type SignatureData } from '../lib/firebase/ecom01';
 import SignaturePad from '../components/signature-pad';
+
 
 type PageState = 'loading' | 'invalid' | 'ready' | 'saving' | 'success' | 'error';
 
@@ -78,20 +79,33 @@ function SigningPageContent() {
     initializeAndValidate();
   }, [docId, token]);
 
-  const handleSignatureSave = async (signature: SignatureData) => {
-    if (!docId || state !== 'ready') return;
+const handleSignatureSave = async (signature: SignatureData) => {
+  if (!docId || state !== 'ready') return;
 
-    setState('saving');
+  setState('saving');
+  try {
+    console.log('[SigningPage] Saving signature...', signature);
+    await updateSignature(docId, signature);
+    console.log('[SigningPage] Signature saved successfully');
+    setState('success');
+    
+    // Clean up anonymous user after successful save
     try {
-      console.log('[SigningPage] Saving signature...', signature);
-      await updateSignature(docId, signature);
-      console.log('[SigningPage] Signature saved successfully');
-      setState('success');
-    } catch (error) {
-      console.error('[SigningPage] Error saving signature:', error);
-      setState('error');
-      setError('Error al guardar la firma');
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        console.log('[SigningPage] Deleting anonymous user...');
+        await auth.currentUser.delete();
+        console.log('[SigningPage] Anonymous user deleted successfully');
+      }
+    } catch (deleteError) {
+      // Don't fail the whole process if user deletion fails
+      console.warn('[SigningPage] Failed to delete anonymous user:', deleteError);
     }
+    
+  } catch (error) {
+    console.error('[SigningPage] Error saving signature:', error);
+    setState('error');
+    setError('Error al guardar la firma');
+   }
   };
 
   if (state === 'loading') {

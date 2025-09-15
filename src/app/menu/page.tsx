@@ -462,7 +462,7 @@ export default function MenuPage() {
               onClick={handleLogout}
               className="mt-3 text-gray-700 border px-3 py-1 rounded hover:bg-gray-50"
             >
-              Logout
+              Cerrar sesión
             </button>
           </div>
         </aside>
@@ -495,13 +495,13 @@ export default function MenuPage() {
               {/* Module header - Always visible at top */}
               <header className="bg-gray-50 border-b px-4 py-2 flex items-center justify-between shrink-0">
                 <span className="text-sm text-gray-600">
-                  Active module: <strong>{activeCode}</strong>
+                  Modulo Activo: <strong>{activeCode}</strong>
                 </span>
                 <button
                   onClick={clearModule}
                   className="text-gray-700 border px-3 py-1 rounded hover:bg-gray-100"
                 >
-                  Close
+                  Cerrar
                 </button>
               </header>
 
@@ -536,7 +536,7 @@ export default function MenuPage() {
               className="ml-auto text-gray-500 hover:text-gray-700"
               aria-label="Dismiss message"
             >
-              Close
+              Cerrar
             </button>
           </div>
         )}

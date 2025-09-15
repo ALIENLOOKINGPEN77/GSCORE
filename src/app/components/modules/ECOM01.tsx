@@ -1,11 +1,11 @@
 // /app/components/modules/ECOM01.tsx
-// ECOM01 – Entrada de Combustible
+// ECOM01 — Entrada de Combustible
 // Enhanced fuel entry module with QR generation and signature functionality
 
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, Truck, User, FileText, Fuel, Clock, AlertCircle, CheckCircle, ArrowRight, Minus, QrCode, Smartphone, X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Calendar, Truck, User, FileText, Fuel, Clock, AlertCircle, CheckCircle, ArrowRight, Minus, QrCode, Smartphone, X, ChevronDown, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { 
   createPendingEntry, 
@@ -535,7 +535,6 @@ export default function ECOM01Module() {
   // Form state
   const [form, setForm] = useState<FuelEntry>(initialForm);
   const [validation, setValidation] = useState<ValidationResult>({ isValid: true, errors: {} });
-  const [showSuccess, setShowSuccess] = useState(false);
 
   // Providers state
   const [providers, setProviders] = useState<string[]>([]);
@@ -546,6 +545,25 @@ export default function ECOM01Module() {
   const [currentDocId, setCurrentDocId] = useState<string>('');
   const [signingUrl, setSigningUrl] = useState<string>('');
   const [document, setDocument] = useState<ECOM01Document | null>(null);
+
+  // Toast message state and timer
+  const [toast, setToast] = useState<string | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper: show toast with auto-hide
+  const showToast = useCallback((message: string) => {
+    console.log("[ECOM01] Toast:", message);
+    setToast(message);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
 
   // Fetch providers from Firebase
   useEffect(() => {
@@ -576,7 +594,7 @@ export default function ECOM01Module() {
   }, []);
 
   useEffect(() => {
-    console.log("[ECOM01] Module mounted – Entrada de Combustible");
+    console.log("[ECOM01] Module mounted — Entrada de Combustible");
     
     // Cleanup function to handle component unmount
     return () => {
@@ -784,11 +802,12 @@ export default function ECOM01Module() {
       
       console.log("[ECOM01] Entry completed successfully");
       setSignatureState('completed');
-      setShowSuccess(true);
+      
+      // Show success toast
+      showToast('Entrada de combustible registrada exitosamente');
       
       // Reset after delay
       setTimeout(() => {
-        setShowSuccess(false);
         setForm(initialForm);
         setValidation({ isValid: true, errors: {} });
         setSignatureState('idle');
@@ -800,8 +819,9 @@ export default function ECOM01Module() {
     } catch (error) {
       console.error("[ECOM01] Failed to save entry:", error);
       setSignatureState('signed');
+      showToast('Error al guardar la entrada de combustible');
     }
-  }, [currentDocId, signatureState, form, validateForm, initialForm]);
+  }, [currentDocId, signatureState, form, validateForm, initialForm, showToast]);
 
   const handleReset = useCallback(async () => {
     if (currentDocId && signatureState !== 'completed') {
@@ -810,7 +830,6 @@ export default function ECOM01Module() {
     
     setForm(initialForm);
     setValidation({ isValid: true, errors: {} });
-    setShowSuccess(false);
     setSignatureState('idle');
     setCurrentDocId('');
     setSigningUrl('');
@@ -877,20 +896,13 @@ export default function ECOM01Module() {
 
   return (
     <section className="w-full p-6 bg-gray-50 min-h-full">
-      {showSuccess && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-800 animate-fade-in">
-          <CheckCircle size={20} />
-          <span>Entrada de combustible registrada exitosamente</span>
-        </div>
-      )}
-
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 bg-blue-100 rounded-lg">
             <Fuel className="text-blue-600" size={24} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">
-            ECOM01 – Entrada de Combustible
+            Carga de Entrada de Combustible
           </h1>
         </div>
      
@@ -1097,6 +1109,25 @@ export default function ECOM01Module() {
           </button>
         </div>
       </form>
+
+      {/* Toast message - positioned at bottom of screen */}
+      {toast && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(95vw,420px)] shadow-lg border border-gray-200 bg-white px-4 py-3 rounded-md text-sm flex items-center gap-2"
+        >
+          <CheckCircle className="text-green-500 shrink-0" size={18} aria-hidden />
+          <span className="text-gray-800">{toast}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-auto text-gray-500 hover:text-gray-700"
+            aria-label="Dismiss message"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       
       {/* CSS to remove number input spinners */}
       <style jsx global>{`

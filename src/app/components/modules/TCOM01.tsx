@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Eye,
   Search,
-  Download
+  Download,
+  History
 } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { 
@@ -22,12 +23,12 @@ import {
   where, 
   orderBy, 
   onSnapshot, 
-  Timestamp,
-  getDocs
+  Timestamp
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
 import { renderSignatureSVG, type ECOM01Document } from "../../lib/firebase/ecom01";
 import { generateEntryPdf } from "../../lib/utils/pdfDocumentGenerator";
+import TCOM01List from "../TCOM01-list";
 
 // ---------------------------
 // Types
@@ -128,13 +129,13 @@ const EntryDetailModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full overflow-hidden">
         <div className="sticky top-0 z-10 bg-white p-6 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">
             Detalle de Entrada - {entry.id}
           </h2>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-12">
             <button
               onClick={handleDownloadPdf}
               disabled={isGeneratingPdf}
@@ -149,7 +150,7 @@ const EntryDetailModal = ({
             </button>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-red-400 font-bold hover:text-red-200 transition-colors"
             >
               ✕
             </button>
@@ -159,10 +160,6 @@ const EntryDetailModal = ({
         <div className="p-6 space-y-6">
           {/* Status */}
           <div className="flex items-center gap-2">
-            <CheckCircle className="text-green-500" size={20} />
-            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-              Completado
-            </span>
             <span className="text-gray-500 text-sm">{entry.completedTime}</span>
           </div>
 
@@ -247,17 +244,11 @@ const EntryDetailModal = ({
                 <div className="text-sm text-gray-500">Litros Recepcionados</div>
               </div>
               <div className="text-center">
-                <div className={`text-2xl font-bold ${
-                  entry.quantityDifference > 0 
-                    ? 'text-orange-600' 
-                    : entry.quantityDifference < 0 
-                    ? 'text-red-600' 
-                    : 'text-green-600'
-                }`}>
+                <div className="text-2xl font-bold text-gray-500">
                   {entry.quantityDifference > 0 ? '+' : ''}{entry.quantityDifference.toFixed(2)}
                 </div>
                 <div className="text-sm text-gray-500">
-                  Diferencia ({entry.quantityDifference > 0 ? 'Faltante' : entry.quantityDifference < 0 ? 'Sobrante' : 'Exacto'})
+                  Diferencia
                 </div>
               </div>
             </div>
@@ -289,6 +280,7 @@ export default function TCOM01Module() {
   const [error, setError] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<FuelEntryDisplay | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     provider: '',
     showDifferencesOnly: false,
@@ -343,7 +335,7 @@ export default function TCOM01Module() {
     };
   }, []);
 
-  // load entries
+  // load entries with real-time listener
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -361,6 +353,7 @@ export default function TCOM01Module() {
       );
       setEntries(entriesData);
       setLoading(false);
+      setError(null); // Clear any previous errors on successful update
     }, (err) => {
       console.error('Error loading entries:', err);
       setError('Error al cargar las entradas de combustible');
@@ -406,28 +399,6 @@ export default function TCOM01Module() {
     return filtered;
   }, [entries, searchTerm, filters]);
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'ECOM01'),
-        where('status', '==', 'completed'),
-        where('completedAt', '>=', todayRange.start),
-        where('completedAt', '<', todayRange.end),
-        orderBy('completedAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const entriesData = querySnapshot.docs.map(doc => 
-        transformEntry(doc.id, doc.data() as ECOM01Document)
-      );
-      setEntries(entriesData);
-    } catch (err) {
-      setError('Error al actualizar las entradas');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <section className="w-full p-6 bg-gray-50 min-h-full">
       <header className="mb-6">
@@ -436,21 +407,21 @@ export default function TCOM01Module() {
             <CheckCircle className="text-green-600" size={24} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">
-            TCOM01 – Entradas de Combustible
+            Entradas de Combustible
           </h1>
+          {loading && (
+            <div className="flex items-center gap-2 text-gray-500 text-sm">
+              <RefreshCw className="animate-spin" size={16} />
+              <span>Actualizando...</span>
+            </div>
+          )}
         </div>
-        <p className="text-gray-600">
-          Visualización de todas las entradas de combustible completadas el día de hoy
-        </p>
       </header>
 
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-800">
           <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={handleRefresh} className="ml-auto text-red-600 hover:text-red-800 underline">
-            Reintentar
-          </button>
         </div>
       )}
 
@@ -470,6 +441,14 @@ export default function TCOM01Module() {
             </div>
             
             <div className="flex gap-3">
+              <button
+                onClick={() => setShowHistoryModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+              >
+                <History size={16} />
+                Ver Historial
+              </button>
+
               <select
                 value={filters.provider}
                 onChange={(e) => setFilters(prev => ({ ...prev, provider: e.target.value }))}
@@ -489,15 +468,6 @@ export default function TCOM01Module() {
                 />
                 <span className="text-sm">Solo diferencias</span>
               </label>
-
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                <RefreshCw className={loading ? 'animate-spin' : ''} size={16} />
-                {loading ? 'Cargando...' : 'Actualizar'}
-              </button>
             </div>
           </div>
         </div>
@@ -583,6 +553,11 @@ export default function TCOM01Module() {
           onClose={() => setSelectedEntry(null)}
         />
       )}
+
+      <TCOM01List
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+      />
     </section>
   );
 }
