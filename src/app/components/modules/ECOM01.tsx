@@ -260,7 +260,7 @@ const DatePicker = ({
   );
 };
 
-// Custom Time Picker Component - FIXED VERSION
+// Custom Time Picker Component - WITH PLACEHOLDER
 const TimePicker = ({ 
   value, 
   onChange, 
@@ -273,29 +273,32 @@ const TimePicker = ({
   disabled?: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  
-  const timeObj = parseTime(value);
-  const [selectedHour, setSelectedHour] = useState(timeObj?.hours ?? 8);
-  const [selectedMinute, setSelectedMinute] = useState(timeObj?.minutes ?? 0);
-
-  // Initialize with default time if no value is provided
-  useEffect(() => {
-    if (!value) {
-      // Set default time of 08:00 when component mounts with no value
-      onChange('08:00');
-    }
-  }, []); // Only run on mount
+  const [selectedHour, setSelectedHour] = useState<number | null>(null);
+  const [selectedMinute, setSelectedMinute] = useState<number | null>(null);
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
-  const handleTimeSelect = () => {
-    onChange(formatTime(selectedHour, selectedMinute));
+  const handleSelect = (hour: number, minute: number) => {
+    onChange(formatTime(hour, minute));
     setIsOpen(false);
+    setSelectedHour(null);
+    setSelectedMinute(null);
   };
 
-  // Don't show placeholder text - always show the actual time value
-  const displayTime = value || '08:00';
+  const handleHourClick = (hour: number) => {
+    setSelectedHour(hour);
+    if (selectedMinute !== null) {
+      handleSelect(hour, selectedMinute);
+    }
+  };
+
+  const handleMinuteClick = (minute: number) => {
+    setSelectedMinute(minute);
+    if (selectedHour !== null) {
+      handleSelect(selectedHour, minute);
+    }
+  };
 
   return (
     <div className="flex flex-col">
@@ -314,71 +317,46 @@ const TimePicker = ({
             error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
-          {/* Always show the time value, never a placeholder */}
-          <span className="text-gray-900">
-            {displayTime}
+          <span className={value ? 'text-gray-900' : 'text-gray-500'}>
+            {value || 'Selecciona una hora de descarga'}
           </span>
           <Clock size={16} className="text-gray-400" />
         </button>
         
         {isOpen && (
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
-            <div className="flex gap-4 mb-4">
-              {/* Hour Selector */}
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Hora</label>
-                <div className="max-h-40 overflow-y-auto border rounded-md">
-                  {hours.map(hour => (
-                    <button
-                      key={hour}
-                      type="button"
-                      onClick={() => setSelectedHour(hour)}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-100 ${
-                        selectedHour === hour ? 'bg-blue-100 text-blue-800' : ''
-                      }`}
-                    >
-                      {hour.toString().padStart(2, '0')}
-                    </button>
-                  ))}
-                </div>
+          <div className="absolute z-20 mt-1 bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden" style={{ width: '140px' }}>
+            <div className="flex h-64">
+              {/* Hours Column */}
+              <div className="flex-1 border-r border-gray-200 overflow-y-auto scrollbar-hide">
+                {hours.map(hour => (
+                  <button
+                    key={hour}
+                    type="button"
+                    onClick={() => handleHourClick(hour)}
+                    className={`w-full px-3 py-2 text-center hover:bg-blue-50 transition-colors ${
+                      selectedHour === hour ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    {hour.toString().padStart(2, '0')}
+                  </button>
+                ))}
               </div>
               
-              {/* Minute Selector */}
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Minuto</label>
-                <div className="max-h-40 overflow-y-auto border rounded-md">
-                  {minutes.filter(m => m % 5 === 0).map(minute => (
-                    <button
-                      key={minute}
-                      type="button"
-                      onClick={() => setSelectedMinute(minute)}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-100 ${
-                        selectedMinute === minute ? 'bg-blue-100 text-blue-800' : ''
-                      }`}
-                    >
-                      {minute.toString().padStart(2, '0')}
-                    </button>
-                  ))}
-                </div>
+              {/* Minutes Column */}
+              <div className="flex-1 overflow-y-auto scrollbar-hide">
+                {minutes.map(minute => (
+                  <button
+                    key={minute}
+                    type="button"
+                    onClick={() => handleMinuteClick(minute)}
+                    className={`w-full px-3 py-2 text-center hover:bg-blue-50 transition-colors ${
+                      selectedMinute === minute ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    {minute.toString().padStart(2, '0')}
+                  </button>
+                ))}
               </div>
-            </div>
-            
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleTimeSelect}
-                className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
-              >
-                Seleccionar
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors text-sm"
-              >
-                Cancelar
-              </button>
             </div>
           </div>
         )}
@@ -391,13 +369,23 @@ const TimePicker = ({
         </div>
       )}
       
-      {/* Click outside handler */}
       {isOpen && (
         <div 
           className="fixed inset-0 z-10"
           onClick={() => setIsOpen(false)}
         />
       )}
+      
+      {/* Hide scrollbars */}
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 };
