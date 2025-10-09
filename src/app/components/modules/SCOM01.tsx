@@ -17,7 +17,8 @@ import {
   ToggleLeft,
   ToggleRight,
   X,
-  ChevronRight
+  ChevronRight,
+  Gauge
 } from "lucide-react";
 import { useAuth } from "../auth-context";
 import {
@@ -32,7 +33,7 @@ import {
   DocumentSnapshot
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
-import { generateSCOM01Pdf } from '../../lib/utils/pdfDocumentGenerator-SCOM01';
+import SCOM01DownloadModal from '../SCOM01-list';
 import SCOM01Compuesto from '../SCOM01-compuesto';
 
 // ---------------------------
@@ -99,7 +100,6 @@ const SignatureDisplay = ({ svgString }: { svgString: string }) => {
   if (!svgString) return null;
 
   try {
-    // Parse the SVG string
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
     const svgElement = svgDoc.querySelector("svg");
@@ -113,21 +113,17 @@ const SignatureDisplay = ({ svgString }: { svgString: string }) => {
       );
     }
 
-    // Get original dimensions
     const originalWidth = svgElement.getAttribute("width") || "600";
     const originalHeight = svgElement.getAttribute("height") || "600";
 
-    // Remove fixed dimensions
     svgElement.removeAttribute("width");
     svgElement.removeAttribute("height");
     svgElement.removeAttribute("style");
 
-    // Set viewBox if not present
     if (!svgElement.getAttribute("viewBox")) {
       svgElement.setAttribute("viewBox", `0 0 ${originalWidth} ${originalHeight}`);
     }
 
-    // Set responsive dimensions
     svgElement.setAttribute("width", "100%");
     svgElement.setAttribute("height", "auto");
     svgElement.setAttribute("style", "max-width: 400px; max-height: 150px;");
@@ -359,6 +355,10 @@ export default function SCOM01Module() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Totalizador states - NEW
+  const [Tinicial, setTinitial] = useState<string>('');
+  const [Tfinal, setTfinal] = useState<string>('');
+
   // Historical mode states
   const [historicalDocs, setHistoricalDocs] = useState<HistoricalDocument[]>([]);
   const [historicalLoading, setHistoricalLoading] = useState(false);
@@ -369,7 +369,7 @@ export default function SCOM01Module() {
   const [selectedEntry, setSelectedEntry] = useState<CargaDisplay | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showHistorical, setShowHistorical] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showComposeModal, setShowComposeModal] = useState(false);
 
   // Get today's document ID
@@ -424,10 +424,23 @@ export default function SCOM01Module() {
           const docData = docSnap.data() as SCOM01Document;
           const transformedEntries = transformEntries(docData);
           setEntries(transformedEntries);
+          
+          // Extract Totalizador values - NEW
+          if (docData.docData) {
+            setTinitial(docData.docData.Tinicial || '');
+            setTfinal(docData.docData.Tfinal || '');
+          } else {
+            setTinitial('');
+            setTfinal('');
+          }
+          
           console.log('[SCOM01] Today data updated:', transformedEntries.length, 'entries');
+          console.log('[SCOM01] Totalizadores:', { Tinicial: docData.docData?.Tinicial, Tfinal: docData.docData?.Tfinal });
         } else {
           console.log('[SCOM01] No data found for today');
           setEntries([]);
+          setTinitial('');
+          setTfinal('');
         }
         setLoading(false);
       },
@@ -446,7 +459,6 @@ export default function SCOM01Module() {
     const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
     if (!dateRegex.test(docId)) return false;
 
-    // Additional validation: check if it's a valid date
     const [day, month, year] = docId.split('-').map(Number);
     const date = new Date(year, month - 1, day);
     return date.getDate() === day &&
@@ -469,7 +481,7 @@ export default function SCOM01Module() {
       let q = query(
         collection(db, 'SCOM01'),
         orderBy('__name__', 'desc'),
-        limit(40) // Load more to account for filtered invalid docs
+        limit(40)
       );
 
       if (isLoadMore && lastDoc) {
@@ -488,7 +500,6 @@ export default function SCOM01Module() {
       querySnapshot.forEach((docSnap) => {
         const docId = docSnap.id;
 
-        // Skip documents that don't match dd-MM-yyyy format
         if (!isValidDocumentFormat(docId)) {
           console.log('[SCOM01] Skipping invalid document format:', docId);
           return;
@@ -496,12 +507,10 @@ export default function SCOM01Module() {
 
         const docData = docSnap.data() as SCOM01Document;
 
-        // Count total cargas
         const flotaCount = docData.CargasFlota ? Object.keys(docData.CargasFlota).length : 0;
         const externasCount = docData.CargasExternas ? Object.keys(docData.CargasExternas).length : 0;
         const totalCargas = flotaCount + externasCount;
 
-        // Format display date
         const [day, month, year] = docId.split('-');
         const displayDate = `${day}/${month}/${year}`;
 
@@ -513,7 +522,6 @@ export default function SCOM01Module() {
         });
 
         validDocsCount++;
-        // Stop when we have 20 valid documents
         if (validDocsCount >= 20) return;
       });
 
@@ -576,23 +584,24 @@ export default function SCOM01Module() {
     );
   }, [historicalDocs, searchTerm, showHistorical]);
 
-  // Download PDF function
-  const downloadPDF = async () => {
-    if (filteredEntries.length === 0) {
-      setError('No hay datos para descargar');
-      return;
-    }
-
-    setIsDownloading(true);
-    try {
-      await generateSCOM01Pdf(filteredEntries, todayDocId);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      setError('Error al generar el archivo PDF');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+  // Calculate summary stats - NEW
+  const summaryStats = useMemo(() => {
+    const flotaEntries = entries.filter(e => e.type === 'flota');
+    const externaEntries = entries.filter(e => e.type === 'externa');
+    
+    const totalFlotaLitros = flotaEntries.reduce((sum, entry) => 
+      sum + parseFloat((entry as CargaFlota).Litros || '0'), 0);
+    const totalExternaLitros = externaEntries.reduce((sum, entry) => 
+      sum + parseFloat((entry as CargaExterna).LitrosCargados || '0'), 0);
+    
+    return {
+      totalFlota: flotaEntries.length,
+      totalExterna: externaEntries.length,
+      totalFlotaLitros,
+      totalExternaLitros,
+      totalGeneral: totalFlotaLitros + totalExternaLitros
+    };
+  }, [entries]);
 
   return (
     <section className="w-full p-6 bg-gray-50 min-h-full">
@@ -602,7 +611,7 @@ export default function SCOM01Module() {
             <Fuel className="text-orange-600" size={24} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">
-            SCOM01 — Despacho de Combustible
+            SCOM01 – Despacho de Combustible
           </h1>
         </div>
       </header>
@@ -611,17 +620,13 @@ export default function SCOM01Module() {
         {/* Side Buttons */}
         <div className="w-64 flex flex-col gap-4 shrink-0">
           <button
-            onClick={downloadPDF}
-            disabled={isDownloading || filteredEntries.length === 0}
+            onClick={() => setShowDownloadModal(true)}
+            disabled={filteredEntries.length === 0}
             className="h-32 bg-blue-100 border-2 border-blue-300 rounded-lg hover:bg-blue-200 transition-all duration-200 flex flex-col items-center justify-center gap-3 group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isDownloading ? (
-              <RefreshCw size={32} className="text-blue-600 animate-spin" />
-            ) : (
-              <Download size={32} className="text-blue-600 group-hover:scale-110 transition-transform" />
-            )}
+            <Download size={32} className="text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-blue-800 font-medium text-center text-sm px-2">
-              {isDownloading ? 'Generando PDF...' : 'Descargar Documento Diario'}
+              Descargar Documento Diario
             </span>
           </button>
 
@@ -634,6 +639,51 @@ export default function SCOM01Module() {
               Armar Documento Compuesto
             </span>
           </button>
+
+          {/* Summary Stats - Only in daily mode */}
+          {!showHistorical && (
+            <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Resumen de Hoy</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Flota Interna:</span>
+                  <span className="font-semibold text-blue-600">{summaryStats.totalFlota}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Flota Externa:</span>
+                  <span className="font-semibold text-green-600">{summaryStats.totalExterna}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <span className="text-gray-600">Total Litros:</span>
+                  <span className="font-bold text-orange-600">{summaryStats.totalGeneral.toFixed(2)}L</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Totalizadores Display - NEW - Only in daily mode */}
+          {!showHistorical && (Tinicial || Tfinal) && (
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Gauge className="text-purple-600" size={18} />
+                <h3 className="text-sm font-semibold text-purple-900">Totalizadores</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="bg-white/70 rounded px-3 py-2">
+                  <div className="text-xs text-gray-600 mb-0.5">Inicial</div>
+                  <div className="text-lg font-bold text-purple-700">
+                    {Tinicial || '-'}
+                  </div>
+                </div>
+                <div className="bg-white/70 rounded px-3 py-2">
+                  <div className="text-xs text-gray-600 mb-0.5">Final</div>
+                  <div className="text-lg font-bold text-indigo-700">
+                    {Tfinal || '-'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Content */}
@@ -703,7 +753,6 @@ export default function SCOM01Module() {
                         <tr>
                           <th className="text-left p-4 font-medium text-gray-900">Fecha</th>
                           <th className="text-right p-4 font-medium text-gray-900">Total Cargas</th>
-          
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -715,7 +764,6 @@ export default function SCOM01Module() {
                             <td className="p-4 text-sm text-right text-gray-900">
                               {doc.totalCargas}
                             </td>
-                        
                           </tr>
                         ))}
                       </tbody>
@@ -839,6 +887,15 @@ export default function SCOM01Module() {
           onClose={() => setSelectedEntry(null)}
         />
       )}
+
+      <SCOM01DownloadModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        entries={filteredEntries}
+        dateString={todayDocId}
+        Tinicial={Tinicial}
+        Tfinal={Tfinal}
+      />
 
       <SCOM01Compuesto
         isOpen={showComposeModal}

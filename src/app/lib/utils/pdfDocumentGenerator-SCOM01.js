@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 
-export const generateSCOM01Pdf = async (entries, dateString) => {
+export const generateSCOM01Pdf = async (entries, dateString, Tinicial = '', Tfinal = '') => {
   if (!entries || entries.length === 0) {
     throw new Error('No hay datos para generar el PDF');
   }
@@ -178,6 +178,11 @@ export const generateSCOM01Pdf = async (entries, dateString) => {
           ${isLastPage ? `
             <!-- Summary (only on last page) -->
             <div style="font-size: 11px; font-weight: bold; margin-top: 15px;">
+              ${(Tinicial || Tfinal) ? `
+                <div style="margin-bottom: 5px;">TOTALIZADOR INICIAL: ${Tinicial || '-'}</div>
+                <div style="margin-bottom: 5px;">TOTALIZADOR FINAL: ${Tfinal || '-'}</div>
+                <div style="margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 5px;"></div>
+              ` : ''}
               <div style="margin-bottom: 5px;">TOTAL FLOTA INTERNA: ${totalInternalLitros.toFixed(2)}L</div>
               <div style="margin-bottom: 5px;">TOTAL FLOTA EXTERNA: ${totalExternalLitros.toFixed(2)}L</div>
               <div style="margin-bottom: 5px;">TOTAL GENERAL: ${totalGeneral.toFixed(2)}L</div>
