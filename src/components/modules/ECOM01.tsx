@@ -7,15 +7,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, Truck, User, FileText, Fuel, Clock, AlertCircle, CheckCircle, ArrowRight, Minus, QrCode, Smartphone, X, ChevronDown, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
 import { useAuth } from "../auth-context";
-import { 
-  createPendingEntry, 
-  subscribeToEntry, 
-  completeEntry, 
+import {
+  createPendingEntry,
+  subscribeToEntry,
+  completeEntry,
   deletePendingEntry,
   buildSigningUrl,
   renderSignatureSVG,
   type ECOM01Document,
-  type FuelEntryFormData 
+  type FuelEntryFormData
 } from "../../lib/firebase/ecom01";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
@@ -88,10 +88,10 @@ const QRCodeDisplay = ({ value, size = 200 }: { value: string; size?: number }) 
 // Signature display component
 const SignatureDisplay = ({ signature }: { signature: any }) => {
   const svgString = renderSignatureSVG(signature);
-  
+
   return (
     <div className="border rounded-lg p-4 bg-gray-50">
-      <div 
+      <div
         dangerouslySetInnerHTML={{ __html: svgString }}
         className="w-full"
         style={{ maxWidth: '300px' }}
@@ -101,11 +101,11 @@ const SignatureDisplay = ({ signature }: { signature: any }) => {
 };
 
 // Custom Date Picker Component
-const DatePicker = ({ 
-  value, 
-  onChange, 
-  error, 
-  disabled = false 
+const DatePicker = ({
+  value,
+  onChange,
+  error,
+  disabled = false
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -116,7 +116,7 @@ const DatePicker = ({
   const [viewMonth, setViewMonth] = useState(new Date());
 
   const selectedDate = parseDate(value);
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -124,20 +124,20 @@ const DatePicker = ({
   const generateCalendarDays = () => {
     const year = viewMonth.getFullYear();
     const month = viewMonth.getMonth();
-    
+
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
+
     const days = [];
     const current = new Date(startDate);
-    
+
     for (let i = 0; i < 42; i++) {
       days.push(new Date(current));
       current.setDate(current.getDate() + 1);
     }
-    
+
     return days;
   };
 
@@ -163,22 +163,21 @@ const DatePicker = ({
         Fecha
         <span className="text-red-500">*</span>
       </label>
-      
+
       <div className="relative">
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`w-full px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between ${
-            error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          className={`w-full px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between ${error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
           <span className={value ? 'text-gray-900' : 'text-gray-500'}>
             {selectedDate ? selectedDate.toLocaleDateString('es-ES') : 'Seleccionar fecha'}
           </span>
           <Calendar size={16} className="text-gray-400" />
         </button>
-        
+
         {isOpen && (
           <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
             {/* Month Navigation */}
@@ -201,7 +200,7 @@ const DatePicker = ({
                 <ChevronRight size={16} />
               </button>
             </div>
-            
+
             {/* Week Headers */}
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
@@ -210,28 +209,27 @@ const DatePicker = ({
                 </div>
               ))}
             </div>
-            
+
             {/* Calendar Days */}
             <div className="grid grid-cols-7 gap-1">
               {days.map((day, index) => {
                 const isCurrentMonth = day.getMonth() === viewMonth.getMonth();
                 const isSelected = selectedDate && day.getTime() === selectedDate.getTime();
                 const isToday = day.getTime() === today.getTime();
-                
+
                 return (
                   <button
                     key={index}
                     type="button"
                     onClick={() => handleDateSelect(day)}
-                    className={`p-2 text-sm rounded transition-colors ${
-                      !isCurrentMonth 
-                        ? 'text-gray-300 hover:bg-gray-50' 
-                        : isSelected
+                    className={`p-2 text-sm rounded transition-colors ${!isCurrentMonth
+                      ? 'text-gray-300 hover:bg-gray-50'
+                      : isSelected
                         ? 'bg-blue-600 text-white'
                         : isToday
-                        ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                   >
                     {day.getDate()}
                   </button>
@@ -241,17 +239,17 @@ const DatePicker = ({
           </div>
         )}
       </div>
-      
+
       {error && (
         <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
           <AlertCircle size={12} />
           <span>{error}</span>
         </div>
       )}
-      
+
       {/* Click outside handler */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-10"
           onClick={() => setIsOpen(false)}
         />
@@ -261,11 +259,11 @@ const DatePicker = ({
 };
 
 // Custom Time Picker Component - WITH PLACEHOLDER
-const TimePicker = ({ 
-  value, 
-  onChange, 
-  error, 
-  disabled = false 
+const TimePicker = ({
+  value,
+  onChange,
+  error,
+  disabled = false
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -307,22 +305,21 @@ const TimePicker = ({
         Hora de Descarga
         <span className="text-red-500">*</span>
       </label>
-      
+
       <div className="relative">
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`w-full px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between ${
-            error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          className={`w-full px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between ${error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
           <span className={value ? 'text-gray-900' : 'text-gray-500'}>
             {value || 'Selecciona una hora de descarga'}
           </span>
           <Clock size={16} className="text-gray-400" />
         </button>
-        
+
         {isOpen && (
           <div className="absolute z-20 mt-1 bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden" style={{ width: '140px' }}>
             <div className="flex h-64">
@@ -333,15 +330,14 @@ const TimePicker = ({
                     key={hour}
                     type="button"
                     onClick={() => handleHourClick(hour)}
-                    className={`w-full px-3 py-2 text-center hover:bg-blue-50 transition-colors ${
-                      selectedHour === hour ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
-                    }`}
+                    className={`w-full px-3 py-2 text-center hover:bg-blue-50 transition-colors ${selectedHour === hour ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
+                      }`}
                   >
                     {hour.toString().padStart(2, '0')}
                   </button>
                 ))}
               </div>
-              
+
               {/* Minutes Column */}
               <div className="flex-1 overflow-y-auto scrollbar-hide">
                 {minutes.map(minute => (
@@ -349,9 +345,8 @@ const TimePicker = ({
                     key={minute}
                     type="button"
                     onClick={() => handleMinuteClick(minute)}
-                    className={`w-full px-3 py-2 text-center hover:bg-blue-50 transition-colors ${
-                      selectedMinute === minute ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
-                    }`}
+                    className={`w-full px-3 py-2 text-center hover:bg-blue-50 transition-colors ${selectedMinute === minute ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
+                      }`}
                   >
                     {minute.toString().padStart(2, '0')}
                   </button>
@@ -361,21 +356,21 @@ const TimePicker = ({
           </div>
         )}
       </div>
-      
+
       {error && (
         <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
           <AlertCircle size={12} />
           <span>{error}</span>
         </div>
       )}
-      
+
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-10"
           onClick={() => setIsOpen(false)}
         />
       )}
-      
+
       {/* Hide scrollbars */}
       <style jsx>{`
         .scrollbar-hide {
@@ -391,12 +386,12 @@ const TimePicker = ({
 };
 
 // Custom dropdown component for providers
-const ProviderDropdown = ({ 
-  value, 
-  onChange, 
-  options, 
-  error, 
-  disabled = false 
+const ProviderDropdown = ({
+  value,
+  onChange,
+  options,
+  error,
+  disabled = false
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -413,25 +408,24 @@ const ProviderDropdown = ({
         Proveedor Externo
         <span className="text-red-500">*</span>
       </label>
-      
+
       <div className="relative">
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`w-full px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between ${
-            error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          className={`w-full px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between ${error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
           <span className={value ? 'text-gray-900' : 'text-gray-500'}>
             {value || 'Seleccione un proveedor'}
           </span>
-          <ChevronDown 
-            size={16} 
+          <ChevronDown
+            size={16}
             className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
         </button>
-        
+
         {isOpen && (
           <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {options.length === 0 ? (
@@ -456,17 +450,17 @@ const ProviderDropdown = ({
           </div>
         )}
       </div>
-      
+
       {error && (
         <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
           <AlertCircle size={12} />
           <span>{error}</span>
         </div>
       )}
-      
+
       {/* Click outside handler */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-10"
           onClick={() => setIsOpen(false)}
         />
@@ -491,9 +485,8 @@ const FormField = ({ id, label, icon: Icon, error, type, ...props }: any) => {
       <input
         id={id}
         autoComplete="off"
-        className={`px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
-        }`}
+        className={`px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-300 bg-red-50 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'
+          }`}
         {...props}
       />
       {error && (
@@ -508,7 +501,7 @@ const FormField = ({ id, label, icon: Icon, error, type, ...props }: any) => {
 
 export default function ECOM01Module() {
   const { user } = useAuth();
-  
+
   const initialForm: FuelEntry = useMemo(() => ({
     fecha: '',
     proveedorExterno: '',
@@ -560,7 +553,7 @@ export default function ECOM01Module() {
         console.log('[ECOM01] Fetching fuel providers...');
         const providersRef = doc(db, 'defaults', 'providers');
         const providersSnap = await getDoc(providersRef);
-        
+
         if (providersSnap.exists()) {
           const data = providersSnap.data();
           const fuelProviders = data.fuel || [];
@@ -583,7 +576,7 @@ export default function ECOM01Module() {
 
   useEffect(() => {
     console.log("[ECOM01] Module mounted — Entrada de Combustible");
-    
+
     // Cleanup function to handle component unmount
     return () => {
       if (currentDocId && signatureState === 'pending' && document?.status === 'pending') {
@@ -600,7 +593,7 @@ export default function ECOM01Module() {
     console.log('[ECOM01] Subscribing to document changes:', currentDocId);
     const unsubscribe = subscribeToEntry(currentDocId, (doc) => {
       setDocument(doc);
-      
+
       if (doc?.status === 'signed' && doc.signature) {
         console.log('[ECOM01] Signature received!');
         setSignatureState('signed');
@@ -622,22 +615,22 @@ export default function ECOM01Module() {
     const fieldStatuses: Record<string, { completed: boolean, value: string, issue?: string }> = {};
     let completedFields = 0;
     let totalFields = 0;
-    
+
     const completionStatus = Object.entries(form).every(([key, value]) => {
       totalFields++;
       const fieldKey = key as keyof FuelEntry;
-      
+
       if (key === 'nroChapa') {
         const hasValue = value.trim() !== '';
         const isValidLength = hasValue && validateLicensePlate(value);
         const isComplete = hasValue && isValidLength;
-        
+
         fieldStatuses[key] = {
           completed: isComplete,
           value: value || '(empty)',
           issue: !hasValue ? 'Campo vacío' : !isValidLength ? 'Debe tener al menos 6 caracteres' : undefined
         };
-        
+
         if (isComplete) completedFields++;
         return isComplete;
       } else {
@@ -647,12 +640,12 @@ export default function ECOM01Module() {
           value: value || '(empty)',
           issue: !isComplete ? 'Campo vacío' : undefined
         };
-        
+
         if (isComplete) completedFields++;
         return isComplete;
       }
     });
-    
+
     // DEBUG LOG - Form completion status
     console.log('🔍 [ECOM01] FORM COMPLETION DEBUG:', {
       overallComplete: completionStatus,
@@ -663,23 +656,23 @@ export default function ECOM01Module() {
         .map(([field, status]) => ({ field, issue: status.issue })),
       completionPercentage: `${Math.round((completedFields / totalFields) * 100)}%`
     });
-    
+
     return completionStatus;
   }, [form, validateLicensePlate]);
 
   // Enhanced validation logic
   const validateForm = useCallback((data: FuelEntry): ValidationResult => {
     const errors: Partial<Record<keyof FuelEntry, string>> = {};
-    
+
     if (!data.fecha) errors.fecha = 'La fecha es requerida';
     if (!data.proveedorExterno.trim()) errors.proveedorExterno = 'El proveedor es requerido';
-    
+
     if (!data.nroChapa.trim()) {
       errors.nroChapa = 'El número de chapa es requerido';
     } else if (!validateLicensePlate(data.nroChapa)) {
       errors.nroChapa = 'Debe tener al menos 6 caracteres';
     }
-    
+
     if (!data.chofer.trim()) errors.chofer = 'El nombre del chofer es requerido';
     if (!data.factura.trim()) errors.factura = 'El número de factura es requerido';
     if (!data.horaDescarga) errors.horaDescarga = 'La hora de descarga es requerida';
@@ -695,13 +688,13 @@ export default function ECOM01Module() {
     } else if (isNaN(Number(data.cantidadRecepcionadaLts)) || Number(data.cantidadRecepcionadaLts) <= 0) {
       errors.cantidadRecepcionadaLts = 'Debe ser un número mayor a 0';
     }
-    
+
     return { isValid: Object.keys(errors).length === 0, errors };
   }, [validateLicensePlate]);
 
   const updateField = useCallback((key: keyof FuelEntry) => (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    
+
     const newForm = { ...form, [key]: value };
     setForm(newForm);
     if (validation.errors[key]) {
@@ -735,7 +728,7 @@ export default function ECOM01Module() {
       setValidation(prev => ({ ...prev, errors: { ...prev.errors, horaDescarga: undefined } }));
     }
   }, [form, validation.errors]);
-  
+
   const quantityDifference = useMemo(() => {
     const facturada = Number(form.cantidadFacturadaLts) || 0;
     const recepcionada = Number(form.cantidadRecepcionadaLts) || 0;
@@ -751,11 +744,11 @@ export default function ECOM01Module() {
       console.log('[ECOM01] Creating pending entry...');
       const { docId, signatureToken } = await createPendingEntry(user.uid);
       const url = buildSigningUrl(docId, signatureToken);
-      
+
       setCurrentDocId(docId);
       setSigningUrl(url);
       setSignatureState('pending');
-      
+
       console.log('[ECOM01] QR generated:', { docId, url });
     } catch (error) {
       console.error('[ECOM01] Failed to generate QR:', error);
@@ -768,7 +761,7 @@ export default function ECOM01Module() {
     if (currentDocId) {
       await deletePendingEntry(currentDocId);
     }
-    
+
     setSignatureState('idle');
     setCurrentDocId('');
     setSigningUrl('');
@@ -782,18 +775,18 @@ export default function ECOM01Module() {
     const validationResult = validateForm(form);
     setValidation(validationResult);
     if (!validationResult.isValid) return;
-    
+
     setSignatureState('saving');
     try {
       const formData: FuelEntryFormData = { ...form };
       await completeEntry(currentDocId, formData);
-      
+
       console.log("[ECOM01] Entry completed successfully");
       setSignatureState('completed');
-      
+
       // Show success toast
       showToast('Entrada de combustible registrada exitosamente');
-      
+
       // Reset after delay
       setTimeout(() => {
         setForm(initialForm);
@@ -803,7 +796,7 @@ export default function ECOM01Module() {
         setSigningUrl('');
         setDocument(null);
       }, 3000);
-      
+
     } catch (error) {
       console.error("[ECOM01] Failed to save entry:", error);
       setSignatureState('signed');
@@ -815,7 +808,7 @@ export default function ECOM01Module() {
     if (currentDocId && signatureState !== 'completed') {
       await deletePendingEntry(currentDocId);
     }
-    
+
     setForm(initialForm);
     setValidation({ isValid: true, errors: {} });
     setSignatureState('idle');
@@ -823,11 +816,11 @@ export default function ECOM01Module() {
     setSigningUrl('');
     setDocument(null);
   }, [initialForm, currentDocId, signatureState]);
-  
+
   // Helper to render a form field
   const renderField = (key: keyof FuelEntry) => {
     const config = FORM_FIELDS_CONFIG[key];
-    
+
     // Special handling for different field types
     if (key === 'proveedorExterno') {
       return (
@@ -841,7 +834,7 @@ export default function ECOM01Module() {
         />
       );
     }
-    
+
     if (key === 'fecha') {
       return (
         <DatePicker
@@ -853,7 +846,7 @@ export default function ECOM01Module() {
         />
       );
     }
-    
+
     if (key === 'horaDescarga') {
       return (
         <TimePicker
@@ -865,7 +858,7 @@ export default function ECOM01Module() {
         />
       );
     }
-    
+
     return (
       <FormField
         id={key}
@@ -893,13 +886,13 @@ export default function ECOM01Module() {
             Carga de Entrada de Combustible
           </h1>
         </div>
-     
+
       </header>
 
       <form className="bg-white border rounded-lg p-8 shadow-sm max-w-6xl space-y-8" noValidate>
         {/* Main info in a two-column layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-          
+
           {/* Section 1: Delivery Information */}
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Información de la Entrega</h2>
@@ -907,7 +900,7 @@ export default function ECOM01Module() {
             {renderField('nroChapa')}
             {renderField('chofer')}
           </div>
-          
+
           {/* Section 2: Document Information */}
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Datos del Documento</h2>
@@ -921,7 +914,7 @@ export default function ECOM01Module() {
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Cantidades de Combustible</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 items-end gap-6 bg-gray-50 p-6 rounded-lg">
-            
+
             {renderField('cantidadFacturadaLts')}
             {renderField('cantidadRecepcionadaLts')}
 
@@ -945,13 +938,13 @@ export default function ECOM01Module() {
           </div>
         </div>
 
-         {/* Signature Section */}
+        {/* Signature Section */}
         <div className="border-b pb-8">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Smartphone size={20} />
             Firma Digital
           </h2>
-          
+
           {/* Show form completion requirement when form is incomplete */}
           {!isFormComplete && signatureState === 'idle' && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
@@ -961,12 +954,12 @@ export default function ECOM01Module() {
                   <p className="text-yellow-700 text-sm mb-4">
                     Para habilitar la generación del código QR de firma, debe completar todos los campos requeridos del formulario.
                   </p>
-                  
+
                 </div>
               </div>
             </div>
           )}
-          
+
           {/* Show QR generation when form is complete and signature is idle */}
           {isFormComplete && signatureState === 'idle' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -1016,7 +1009,7 @@ export default function ECOM01Module() {
                   <X size={20} />
                 </button>
               </div>
-              
+
               <div className="flex items-start gap-6">
                 <QRCodeDisplay value={signingUrl} size={250} />
                 <div className="flex-1">
@@ -1086,7 +1079,7 @@ export default function ECOM01Module() {
               </>
             )}
           </button>
-          
+
           <button
             type="button"
             onClick={handleReset}
@@ -1116,7 +1109,7 @@ export default function ECOM01Module() {
           </button>
         </div>
       )}
-      
+
       {/* CSS to remove number input spinners */}
       <style jsx global>{`
         input[type=number]::-webkit-outer-spin-button,

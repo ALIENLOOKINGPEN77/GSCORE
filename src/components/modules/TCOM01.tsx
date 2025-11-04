@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { 
-  Calendar, 
-  Truck, 
-  User, 
-  FileText, 
-  Fuel, 
-  Clock, 
-  CheckCircle, 
-  RefreshCw, 
+import {
+  Calendar,
+  Truck,
+  User,
+  FileText,
+  Fuel,
+  Clock,
+  CheckCircle,
+  RefreshCw,
   AlertCircle,
   Eye,
   Search,
@@ -17,18 +17,18 @@ import {
   History
 } from "lucide-react";
 import { useAuth } from "../auth-context";
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
   Timestamp
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
 import { renderSignatureSVG, type ECOM01Document } from "../../lib/firebase/ecom01";
 import { generateEntryPdf } from "../../lib/utils/pdfDocumentGenerator";
-import TCOM01List from "../TCOM01-list";
+import TCOM01List from "../helpers/TCOM01/TCOM01-list";
 
 // ---------------------------
 // Types
@@ -102,12 +102,12 @@ const SignatureDisplay = ({ signature, className = "" }: { signature: any; class
 // ---------------------------
 // Modal component with new PDF generation
 // ---------------------------
-const EntryDetailModal = ({ 
-  entry, 
-  onClose 
-}: { 
-  entry: FuelEntryDisplay | null; 
-  onClose: () => void; 
+const EntryDetailModal = ({
+  entry,
+  onClose
+}: {
+  entry: FuelEntryDisplay | null;
+  onClose: () => void;
 }) => {
   if (!entry) return null;
 
@@ -274,7 +274,7 @@ const EntryDetailModal = ({
 // ---------------------------
 export default function TCOM01Module() {
   const { user } = useAuth();
-  
+
   const [entries, setEntries] = useState<FuelEntryDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -348,7 +348,7 @@ export default function TCOM01Module() {
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const entriesData = querySnapshot.docs.map(doc => 
+      const entriesData = querySnapshot.docs.map(doc =>
         transformEntry(doc.id, doc.data() as ECOM01Document)
       );
       setEntries(entriesData);
@@ -439,7 +439,7 @@ export default function TCOM01Module() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowHistoryModal(true)}
@@ -484,7 +484,7 @@ export default function TCOM01Module() {
           ) : filteredEntries.length === 0 ? (
             <div className="p-8 text-center">
               <div className="text-gray-500 mb-2">
-                {searchTerm || filters.provider || filters.showDifferencesOnly 
+                {searchTerm || filters.provider || filters.showDifferencesOnly
                   ? 'No se encontraron entradas con los filtros aplicados'
                   : 'No hay entradas de combustible completadas hoy'
                 }
@@ -520,13 +520,12 @@ export default function TCOM01Module() {
                       {parseFloat(entry.cantidadRecepcionadaLts || '0').toFixed(2)}
                     </td>
                     <td className="p-4 text-sm text-right">
-                      <span className={`font-medium ${
-                        Math.abs(entry.quantityDifference) < 0.01
-                          ? 'text-green-600'
-                          : entry.quantityDifference > 0
+                      <span className={`font-medium ${Math.abs(entry.quantityDifference) < 0.01
+                        ? 'text-green-600'
+                        : entry.quantityDifference > 0
                           ? 'text-orange-600'
                           : 'text-red-600'
-                      }`}>
+                        }`}>
                         {entry.quantityDifference > 0 ? '+' : ''}{entry.quantityDifference.toFixed(2)}
                       </span>
                     </td>

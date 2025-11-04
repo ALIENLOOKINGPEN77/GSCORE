@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { 
-  Calendar, 
-  Truck, 
-  User, 
-  FileText, 
-  Fuel, 
-  Clock, 
-  Trash2, 
-  RefreshCw, 
+import {
+  Calendar,
+  Truck,
+  User,
+  FileText,
+  Fuel,
+  Clock,
+  Trash2,
+  RefreshCw,
   AlertCircle,
   Search,
   Archive,
@@ -18,12 +18,12 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useAuth } from "../auth-context";
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
   doc,
   deleteDoc,
   addDoc,
@@ -60,14 +60,14 @@ type TabType = 'current' | 'deleted';
 // ---------------------------
 // Confirmation Modal
 // ---------------------------
-const DeleteConfirmationModal = ({ 
-  entry, 
-  onConfirm, 
-  onCancel, 
-  isDeleting 
-}: { 
-  entry: FuelEntryDisplay | null; 
-  onConfirm: () => void; 
+const DeleteConfirmationModal = ({
+  entry,
+  onConfirm,
+  onCancel,
+  isDeleting
+}: {
+  entry: FuelEntryDisplay | null;
+  onConfirm: () => void;
   onCancel: () => void;
   isDeleting: boolean;
 }) => {
@@ -85,12 +85,12 @@ const DeleteConfirmationModal = ({
               Confirmar Eliminación
             </h3>
           </div>
-          
+
           <div className="space-y-3 mb-6">
             <p className="text-gray-700">
               ¿Está seguro de que desea eliminar esta entrada de combustible?
             </p>
-            
+
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Factura:</span>
@@ -109,10 +109,10 @@ const DeleteConfirmationModal = ({
                 <span className="font-medium">{entry.nroChapa}</span>
               </div>
             </div>
-            
-          
+
+
           </div>
-          
+
           <div className="flex gap-3">
             <button
               onClick={onCancel}
@@ -148,21 +148,20 @@ const DeleteConfirmationModal = ({
 // ---------------------------
 // Toast Component
 // ---------------------------
-const Toast = ({ 
-  message, 
-  type, 
-  onClose 
-}: { 
-  message: string; 
-  type: 'success' | 'error'; 
-  onClose: () => void; 
+const Toast = ({
+  message,
+  type,
+  onClose
+}: {
+  message: string;
+  type: 'success' | 'error';
+  onClose: () => void;
 }) => (
   <div className="fixed bottom-4 right-4 z-50 animate-fade-in">
-    <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border ${
-      type === 'success' 
-        ? 'bg-green-50 border-green-200 text-green-800' 
-        : 'bg-red-50 border-red-200 text-red-800'
-    }`}>
+    <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border ${type === 'success'
+      ? 'bg-green-50 border-green-200 text-green-800'
+      : 'bg-red-50 border-red-200 text-red-800'
+      }`}>
       {type === 'success' ? (
         <CheckCircle size={18} />
       ) : (
@@ -184,29 +183,29 @@ const Toast = ({
 // ---------------------------
 export default function ATCOM01Module() {
   const { user } = useAuth();
-  
+
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('current');
-  
+
   // Current entries state
   const [currentEntries, setCurrentEntries] = useState<FuelEntryDisplay[]>([]);
   const [currentLoading, setCurrentLoading] = useState(false);
   const [currentError, setCurrentError] = useState<string | null>(null);
-  
+
   // Deleted entries state
   const [deletedEntries, setDeletedEntries] = useState<DeletedEntry[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [deletedError, setDeletedError] = useState<string | null>(null);
   const [deletedLoaded, setDeletedLoaded] = useState(false);
-  
+
   // Date range for current entries
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
+
   // Deletion state
   const [entryToDelete, setEntryToDelete] = useState<FuelEntryDisplay | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -215,7 +214,7 @@ export default function ATCOM01Module() {
     const today = new Date();
     const weekAgo = new Date(today);
     weekAgo.setDate(weekAgo.getDate() - 7);
-    
+
     setEndDate(today.toISOString().split('T')[0]);
     setStartDate(weekAgo.toISOString().split('T')[0]);
   }, []);
@@ -289,10 +288,10 @@ export default function ATCOM01Module() {
       );
 
       const querySnapshot = await getDocs(q);
-      const entriesData = querySnapshot.docs.map(doc => 
+      const entriesData = querySnapshot.docs.map(doc =>
         transformEntry(doc.id, doc.data() as ECOM01Document)
       );
-      
+
       setCurrentEntries(entriesData);
     } catch (err) {
       console.error('Error fetching current entries:', err);
@@ -321,7 +320,7 @@ export default function ATCOM01Module() {
         id: doc.id,
         ...doc.data()
       })) as DeletedEntry[];
-      
+
       setDeletedEntries(deletedData);
       setDeletedLoaded(true);
     } catch (err) {
@@ -357,7 +356,7 @@ export default function ATCOM01Module() {
 
       // Update local state
       setCurrentEntries(prev => prev.filter(entry => entry.id !== entryToDelete.id));
-      
+
       // Reset deleted entries to force reload
       setDeletedLoaded(false);
       setDeletedEntries([]);
@@ -402,11 +401,10 @@ export default function ATCOM01Module() {
           <nav className="flex">
             <button
               onClick={() => handleTabChange('current')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'current'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'current'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <div className="flex items-center gap-2">
                 <FileText size={16} />
@@ -420,11 +418,10 @@ export default function ATCOM01Module() {
             </button>
             <button
               onClick={() => handleTabChange('deleted')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'deleted'
-                  ? 'border-red-500 text-red-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'deleted'
+                ? 'border-red-500 text-red-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Archive size={16} />
@@ -503,7 +500,7 @@ export default function ATCOM01Module() {
                 </div>
               ) : currentEntries.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
-                  {startDate && endDate 
+                  {startDate && endDate
                     ? 'No se encontraron entradas en el rango de fechas seleccionado'
                     : 'Selecciona un rango de fechas para buscar entradas'
                   }
@@ -538,13 +535,12 @@ export default function ATCOM01Module() {
                           {parseFloat(entry.cantidadRecepcionadaLts || '0').toFixed(2)}
                         </td>
                         <td className="p-4 text-sm text-right">
-                          <span className={`font-medium ${
-                            Math.abs(entry.quantityDifference) < 0.01
-                              ? 'text-green-600'
-                              : entry.quantityDifference > 0
+                          <span className={`font-medium ${Math.abs(entry.quantityDifference) < 0.01
+                            ? 'text-green-600'
+                            : entry.quantityDifference > 0
                               ? 'text-orange-600'
                               : 'text-red-600'
-                          }`}>
+                            }`}>
                             {entry.quantityDifference > 0 ? '+' : ''}{entry.quantityDifference.toFixed(2)}
                           </span>
                         </td>
@@ -580,7 +576,7 @@ export default function ATCOM01Module() {
               <div className="p-4 bg-red-50 flex items-center gap-2 text-red-800">
                 <AlertCircle size={20} />
                 <span>{deletedError}</span>
-                <button 
+                <button
                   onClick={() => {
                     setDeletedLoaded(false);
                     fetchDeletedEntries();

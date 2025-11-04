@@ -5,7 +5,7 @@
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Trash2, Check, Edit3 } from 'lucide-react';
-import type { SignatureData } from '../lib/firebase/ecom01';
+import type { SignatureData } from '../../../lib/firebase/ecom01';
 
 type Point = { x: number; y: number };
 type Stroke = Point[];
@@ -37,14 +37,14 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    
+
     // Redraw all strokes
     strokes.forEach(stroke => {
       if (stroke.length < 2) return;
-      
+
       ctx.beginPath();
       ctx.moveTo(stroke[0].x, stroke[0].y);
       stroke.slice(1).forEach(point => {
@@ -80,7 +80,7 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
 
   const handleStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (disabled) return;
-    
+
     e.preventDefault();
     setIsDrawing(true);
     const point = getEventPoint(e);
@@ -89,16 +89,16 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
 
   const handleMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || disabled) return;
-    
+
     e.preventDefault();
     const point = getEventPoint(e);
     setCurrentStroke(prev => [...prev, point]);
-    
+
     // Draw current stroke in real-time
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || currentStroke.length === 0) return;
-    
+
     ctx.beginPath();
     ctx.moveTo(currentStroke[currentStroke.length - 1].x, currentStroke[currentStroke.length - 1].y);
     ctx.lineTo(point.x, point.y);
@@ -107,7 +107,7 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
 
   const handleEnd = useCallback(() => {
     if (!isDrawing || disabled) return;
-    
+
     setIsDrawing(false);
     if (currentStroke.length > 1) {
       setStrokes(prev => [...prev, currentStroke]);
@@ -124,25 +124,25 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
   const convertToSVGPaths = useCallback((): SignatureData['paths'] => {
     return strokes.map(stroke => {
       if (stroke.length < 2) return { d: '', strokeWidth: 2 };
-      
+
       let d = `M ${stroke[0].x} ${stroke[0].y}`;
       for (let i = 1; i < stroke.length; i++) {
         d += ` L ${stroke[i].x} ${stroke[i].y}`;
       }
-      
+
       return { d, strokeWidth: 2 };
     }).filter(path => path.d !== '');
   }, [strokes]);
 
   const handleSave = useCallback(() => {
     if (disabled || strokes.length === 0) return;
-    
+
     const signatureData: SignatureData = {
       width: canvasWidth,
       height: canvasHeight,
       paths: convertToSVGPaths()
     };
-    
+
     onSave(signatureData);
   }, [disabled, strokes.length, canvasWidth, canvasHeight, convertToSVGPaths, onSave]);
 
@@ -153,15 +153,14 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
       <div className="flex items-center gap-2 text-gray-700">
         <span className="font-medium">Firma Digital</span>
       </div>
-      
+
       <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-0.5 bg-white">
         <canvas
           ref={canvasRef}
           width={canvasWidth}
           height={canvasHeight}
-          className={`w-full touch-none border border-gray-200 rounded-md ${
-            disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'
-          }`}
+          className={`w-full touch-none border border-gray-200 rounded-md ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'
+            }`}
           onMouseDown={handleStart}
           onMouseMove={handleMove}
           onMouseUp={handleEnd}
@@ -169,12 +168,12 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
           onTouchStart={handleStart}
           onTouchMove={handleMove}
           onTouchEnd={handleEnd}
-          style={{ 
+          style={{
             maxHeight: '200px',
             aspectRatio: `${canvasWidth}/${canvasHeight}`
           }}
         />
-        
+
         {!hasSignature && !disabled && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-gray-400 text-sm">
@@ -194,7 +193,7 @@ export default function SignaturePad({ onSave, disabled = false, className = '' 
           <Trash2 size={16} />
           Limpiar
         </button>
-        
+
         <button
           type="button"
           onClick={handleSave}

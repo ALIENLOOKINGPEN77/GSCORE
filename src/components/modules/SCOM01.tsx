@@ -33,8 +33,8 @@ import {
   DocumentSnapshot
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
-import SCOM01DownloadModal from '../SCOM01-list';
-import SCOM01Compuesto from '../SCOM01-compuesto';
+import SCOM01DownloadModal from '../helpers/SCOM01/SCOM01-list';
+import SCOM01Compuesto from '../helpers/SCOM01/SCOM01-compuesto';
 
 // ---------------------------
 // Types
@@ -424,7 +424,7 @@ export default function SCOM01Module() {
           const docData = docSnap.data() as SCOM01Document;
           const transformedEntries = transformEntries(docData);
           setEntries(transformedEntries);
-          
+
           // Extract Totalizador values - NEW
           if (docData.docData) {
             setTinitial(docData.docData.Tinicial || '');
@@ -433,7 +433,7 @@ export default function SCOM01Module() {
             setTinitial('');
             setTfinal('');
           }
-          
+
           console.log('[SCOM01] Today data updated:', transformedEntries.length, 'entries');
           console.log('[SCOM01] Totalizadores:', { Tinicial: docData.docData?.Tinicial, Tfinal: docData.docData?.Tfinal });
         } else {
@@ -588,12 +588,12 @@ export default function SCOM01Module() {
   const summaryStats = useMemo(() => {
     const flotaEntries = entries.filter(e => e.type === 'flota');
     const externaEntries = entries.filter(e => e.type === 'externa');
-    
-    const totalFlotaLitros = flotaEntries.reduce((sum, entry) => 
+
+    const totalFlotaLitros = flotaEntries.reduce((sum, entry) =>
       sum + parseFloat((entry as CargaFlota).Litros || '0'), 0);
-    const totalExternaLitros = externaEntries.reduce((sum, entry) => 
+    const totalExternaLitros = externaEntries.reduce((sum, entry) =>
       sum + parseFloat((entry as CargaExterna).LitrosCargados || '0'), 0);
-    
+
     return {
       totalFlota: flotaEntries.length,
       totalExterna: externaEntries.length,

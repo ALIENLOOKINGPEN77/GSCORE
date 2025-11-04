@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { 
-  Calendar, 
-  Truck, 
-  User, 
-  FileText, 
-  Fuel, 
-  Clock, 
-  RefreshCw, 
+import {
+  Calendar,
+  Truck,
+  User,
+  FileText,
+  Fuel,
+  Clock,
+  RefreshCw,
   AlertCircle,
   Eye,
   Search,
@@ -16,18 +16,18 @@ import {
   Download,
   FileDown
 } from "lucide-react";
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
   Timestamp
 } from "firebase/firestore";
-import { db } from "../lib/firebase/client";
-import { type ECOM01Document } from "../lib/firebase/ecom01";
+import { db } from "../../../lib/firebase/client";
+import { type ECOM01Document } from "../../../lib/firebase/ecom01";
 import * as XLSX from 'xlsx';
-import { generateTCOM01Pdf } from '../lib/utils/pdfDocumentGenerator-TCOM01';
+import { generateTCOM01Pdf } from '../../../lib/utils/pdfDocumentGenerator-TCOM01';
 
 // ---------------------------
 // Types
@@ -48,12 +48,12 @@ type TCOM01ListProps = {
 // ---------------------------
 // Entry Detail Modal (simplified version)
 // ---------------------------
-const QuickEntryModal = ({ 
-  entry, 
-  onClose 
-}: { 
-  entry: FuelEntryDisplay | null; 
-  onClose: () => void; 
+const QuickEntryModal = ({
+  entry,
+  onClose
+}: {
+  entry: FuelEntryDisplay | null;
+  onClose: () => void;
 }) => {
   if (!entry) return null;
 
@@ -116,13 +116,12 @@ const QuickEntryModal = ({
                 <div className="text-xs text-gray-500">Recepcionado (L)</div>
               </div>
               <div>
-                <div className={`text-lg font-bold ${
-                  Math.abs(entry.quantityDifference) < 0.01
-                    ? 'text-green-600'
-                    : entry.quantityDifference > 0
+                <div className={`text-lg font-bold ${Math.abs(entry.quantityDifference) < 0.01
+                  ? 'text-green-600'
+                  : entry.quantityDifference > 0
                     ? 'text-orange-600'
                     : 'text-red-600'
-                }`}>
+                  }`}>
                   {entry.quantityDifference > 0 ? '+' : ''}{entry.quantityDifference.toFixed(2)}
                 </div>
                 <div className="text-xs text-gray-500">Diferencia</div>
@@ -145,7 +144,7 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
   const [selectedEntry, setSelectedEntry] = useState<FuelEntryDisplay | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  
+
   // Date range state
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -289,10 +288,10 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
       );
 
       const querySnapshot = await getDocs(q);
-      const entriesData = querySnapshot.docs.map(doc => 
+      const entriesData = querySnapshot.docs.map(doc =>
         transformEntry(doc.id, doc.data() as ECOM01Document)
       );
-      
+
       setEntries(entriesData);
     } catch (err) {
       console.error('Error fetching entries:', err);
@@ -311,7 +310,7 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
       const today = new Date();
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
-      
+
       setEndDate(today.toISOString().split('T')[0]);
       setStartDate(weekAgo.toISOString().split('T')[0]);
     }
@@ -375,7 +374,7 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
                   Buscar
                 </button>
               </div>
-              
+
               {entries.length > 0 && (
                 <div className="flex gap-2">
                   <button
@@ -390,7 +389,7 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
                     )}
                     {isDownloading ? 'Generando...' : 'Descargar Excel'}
                   </button>
-                  
+
                   <button
                     onClick={downloadPDF}
                     disabled={isGeneratingPdf}
@@ -427,7 +426,7 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
               </div>
             ) : entries.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
-                {startDate && endDate 
+                {startDate && endDate
                   ? 'No se encontraron entradas en el rango de fechas seleccionado'
                   : 'Selecciona un rango de fechas para buscar entradas'
                 }
@@ -437,7 +436,7 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
                 <div className="mb-4 text-sm text-gray-600">
                   Mostrando {entries.length} entradas
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="w-full border border-gray-200 rounded-lg">
                     <thead className="bg-gray-50">
@@ -468,13 +467,12 @@ export default function TCOM01List({ isOpen, onClose }: TCOM01ListProps) {
                             {parseFloat(entry.cantidadRecepcionadaLts || '0').toFixed(2)}
                           </td>
                           <td className="p-3 text-sm text-right">
-                            <span className={`font-medium ${
-                              Math.abs(entry.quantityDifference) < 0.01
-                                ? 'text-green-600'
-                                : entry.quantityDifference > 0
+                            <span className={`font-medium ${Math.abs(entry.quantityDifference) < 0.01
+                              ? 'text-green-600'
+                              : entry.quantityDifference > 0
                                 ? 'text-orange-600'
                                 : 'text-red-600'
-                            }`}>
+                              }`}>
                               {entry.quantityDifference > 0 ? '+' : ''}{entry.quantityDifference.toFixed(2)}
                             </span>
                           </td>

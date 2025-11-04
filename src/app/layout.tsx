@@ -3,9 +3,9 @@
 // Keep your fonts and global styles as you already had.
 import type { Metadata } from "next";
 import "./globals.css";
-import { AuthProvider } from "./components/auth-context";
-import { ClientSuspenseWrapper } from "./components/ClientSuspenseWrapper";
-import 'reactflow/dist/style.css';   
+import { AuthProvider } from "../components/auth-context";
+import { ClientSuspenseWrapper } from "../components/ClientSuspenseWrapper";
+import 'reactflow/dist/style.css';
 
 export const metadata: Metadata = {
   title: "GS CORE - ERP",

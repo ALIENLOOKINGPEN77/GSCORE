@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 
-export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, filter) => {
+export const generateSCOM01CompuestoUnicoPdf = async (entries, dateString, filter, Tinicial = '', Tfinal = '') => {
   if (!entries || entries.length === 0) {
     throw new Error('No hay datos para generar el PDF');
   }
@@ -17,28 +17,19 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       sum + parseFloat(entry.LitrosCargados || '0'), 0);
     const totalGeneral = totalInternalLitros + totalExternalLitros;
 
-    // Format dates for display
-    const formatDateDisplay = (dateStr) => dateStr.split('-').reverse().join('/');
-    const displayStartDate = formatDateDisplay(startDate);
-    const displayEndDate = formatDateDisplay(endDate);
-    const dateRangeText = startDate === endDate 
-      ? displayStartDate 
-      : `${displayStartDate} - ${displayEndDate}`;
+    // Format date for display
+    const displayDate = dateString ? 
+      dateString.split('-').reverse().join('/') : 
+      new Date().toLocaleString('es-ES');
 
-    // Sort entries by date and time
-    const allEntries = [...entries].sort((a, b) => {
-      // First by source date
-      const dateCompare = b.sourceDate.localeCompare(a.sourceDate);
-      if (dateCompare !== 0) return dateCompare;
-      // Then by timestamp
-      return (b.createdAt || 0) - (a.createdAt || 0);
-    });
+    // Sort all entries by timestamp
+    const allEntries = [...entries].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     // Pagination: 12 entries per page
     const ENTRIES_PER_PAGE = 12;
     const totalPages = Math.ceil(allEntries.length / ENTRIES_PER_PAGE);
 
-    // Helper function to render signature
+    // Helper function to render signature or placeholder
     const renderSignatureCell = (entry) => {
       if (entry.HasFirma && entry.FirmaSvg) {
         try {
@@ -77,8 +68,8 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       return `Filtrado por ${filterTypeNames[filter.type]}: ${filter.values.join(', ')}`;
     };
 
-    // Helper function to generate header
-    const generateHeader = () => `
+    // Helper function to generate header HTML
+    const generateHeader = (pageNum) => `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
         <div style="width: 80px; height: 40px; display: flex; align-items: center;">
           <img 
@@ -88,7 +79,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
           />
         </div>
         <div style="text-align: center; flex: 1;">
-          <h1 style="margin: 0; font-size: 18px; font-weight: bold;">CONTROL DE DESPACHO DE COMBUSTIBLE / DOCUMENTO COMPUESTO</h1>
+          <h1 style="margin: 0; font-size: 18px; font-weight: bold;">CONTROL DE DESPACHO DE COMBUSTIBLE</h1>
         </div>
         <div style="text-align: right; font-size: 10px; width: 80px;">
           <div>FL-TAL-05</div>
@@ -100,7 +91,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
         <div style="margin-bottom: 5px;"><strong>EMPRESA:</strong> GS CONCRETOS S.A.</div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
           <div><strong>TIPO DE COMBUSTIBLE:</strong> Diesel Tipo 3</div>
-          <div><strong>PERÍODO:</strong> ${dateRangeText}</div>
+          <div><strong>FECHA:</strong> ${displayDate}</div>
         </div>
         <div style="font-size: 10px; color: #666;"><strong>FILTRO:</strong> ${getFilterDescription()}</div>
       </div>
@@ -110,16 +101,17 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
     const generateTableHeader = () => `
       <thead>
         <tr style="background-color: #f0f0f0;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">TIPO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px;">EMPRESA /<br>NRO. MÓVIL</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">NRO. CHAPA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 100px;">CHOFER</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">LITROS<br>CARGADOS</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">HORA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">KILOMETRAJE</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">HORÓMETRO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">PRECINTO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 100px;">FIRMA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">FECHA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 45px;">TIPO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 85px;">EMPRESA /<br>NRO. MÓVIL</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">NRO. CHAPA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 95px;">CHOFER</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px;">LITROS<br>CARGADOS</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 45px;">HORA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">KILOMETRAJE</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">HORÓMETRO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px;">PRECINTO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px;">FIRMA</th>
         </tr>
       </thead>
     `;
@@ -128,8 +120,10 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
     const generateTableRows = (pageEntries) => {
       return pageEntries.map(entry => {
         const isFlota = entry.type === 'flota';
+        const entryDate = entry.sourceDate ? entry.sourceDate.split('-').reverse().join('/') : '-';
         return `
           <tr style="background-color: #fafafa;">
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${entryDate}</td>
             <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${isFlota ? 'INTERNO' : 'EXTERNO'}</td>
             <td style="border: 1px solid #000; padding: 5px;">${isFlota ? entry.NroMovil : entry.Empresa}</td>
             <td style="border: 1px solid #000; padding: 5px; text-align: center;">${isFlota ? '-' : (entry.NumeroChapa || '-')}</td>
@@ -140,7 +134,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
             <td style="border: 1px solid #000; padding: 5px; text-align: right;">${entry.Horometro || '-'}</td>
             <td style="border: 1px solid #000; padding: 5px; text-align: center;">${entry.Precinto || '-'}</td>
             <td style="border: 1px solid #000; padding: 3px; text-align: center; vertical-align: middle;">
-              <div style="display: flex; align-items: center; justify-center; height: 30px;">
+              <div style="display: flex; align-items: center; justify-content: center; height: 30px;">
                 ${renderSignatureCell(entry)}
               </div>
             </td>
@@ -164,6 +158,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       const isLastPage = pageIndex === totalPages - 1;
       const currentPage = pageIndex + 1;
 
+      // Create temporary HTML element for this page
       const tempDiv = document.createElement('div');
       tempDiv.style.position = 'absolute';
       tempDiv.style.left = '-9999px';
@@ -190,7 +185,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         ">
-          ${generateHeader()}
+          ${generateHeader(currentPage)}
 
           <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 20px;">
             ${generateTableHeader()}
@@ -200,7 +195,13 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
           </table>
 
           ${isLastPage ? `
+            <!-- Summary (only on last page) -->
             <div style="font-size: 11px; font-weight: bold; margin-top: 15px;">
+              ${(Tinicial || Tfinal) ? `
+                <div style="margin-bottom: 5px;">TOTALIZADOR INICIAL: ${Tinicial || '-'}</div>
+                <div style="margin-bottom: 5px;">TOTALIZADOR FINAL: ${Tfinal || '-'}</div>
+                <div style="margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 5px;"></div>
+              ` : ''}
               <div style="margin-bottom: 5px;">TOTAL FLOTA INTERNA: ${totalInternalLitros.toFixed(2)}L</div>
               <div style="margin-bottom: 5px;">TOTAL FLOTA EXTERNA: ${totalExternalLitros.toFixed(2)}L</div>
               <div style="margin-bottom: 5px;">TOTAL GENERAL: ${totalGeneral.toFixed(2)}L</div>
@@ -208,6 +209,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
             </div>
           ` : ''}
 
+          <!-- Footer -->
           <div style="margin-top: ${isLastPage ? '20px' : '40px'}; font-size: 9px; color: #666; display: flex; justify-content: space-between;">
             <div>Generado el: ${new Date().toLocaleString('es-ES')}</div>
             <div>Página ${currentPage} de ${totalPages}</div>
@@ -215,12 +217,14 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
         </div>
       `;
 
+      // Add to document temporarily
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
       const targetScale = 2;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
+      // Generate canvas with zoom-independent settings
       const canvas = await html2canvas(tempDiv, {
         scale: normalizedScale,
         useCORS: true,
@@ -238,8 +242,10 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
         foreignObjectRendering: false
       });
 
+      // Remove temporary element
       document.body.removeChild(tempDiv);
 
+      // Add page to PDF (add new page if not first)
       if (pageIndex > 0) {
         pdf.addPage();
       }
@@ -251,6 +257,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
+      // Add image to PDF
       if (imgHeight <= pdfHeight) {
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       } else {
@@ -263,12 +270,15 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       }
     }
 
-    const filename = `Despacho_Compuesto_SCOM01_${displayStartDate.replace(/\//g, '-')}_${displayEndDate.replace(/\//g, '-')}.pdf`;
+    // Generate filename
+    const filename = `Despacho_Diario_SCOM01_${displayDate.replace(/\//g, '-')}.pdf`;
+    
+    // Save the PDF
     pdf.save(filename);
     
     return true;
   } catch (error) {
-    console.error('Error generating SCOM01 Compuesto PDF:', error);
+    console.error('Error generating SCOM01 Compuesto Unico PDF:', error);
     throw error;
   }
 };

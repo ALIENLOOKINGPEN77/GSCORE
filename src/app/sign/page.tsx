@@ -7,9 +7,9 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signInAnonymously, deleteUser } from 'firebase/auth';
 import { CheckCircle, AlertCircle, Smartphone, FileText } from 'lucide-react';
-import { auth } from '../lib/firebase/client';
-import { getEntryDocument, updateSignature, type ECOM01Document, type SignatureData } from '../lib/firebase/ecom01';
-import SignaturePad from '../components/signature-pad';
+import { auth } from '../../lib/firebase/client';
+import { getEntryDocument, updateSignature, type ECOM01Document, type SignatureData } from '../../lib/firebase/ecom01';
+import SignaturePad from '../../components/helpers/ECOM01/signature-pad';
 
 
 type PageState = 'loading' | 'invalid' | 'ready' | 'saving' | 'success' | 'error';
@@ -27,7 +27,7 @@ function SigningPageContent() {
     async function initializeAndValidate() {
       try {
         console.log('[SigningPage] Initializing anonymous auth...');
-        
+
         // Sign in anonymously
         await signInAnonymously(auth);
         console.log('[SigningPage] Anonymous auth successful');
@@ -43,7 +43,7 @@ function SigningPageContent() {
         // Get and validate document
         console.log('[SigningPage] Fetching document:', docId);
         const doc = await getEntryDocument(docId);
-        
+
         if (!doc) {
           console.error('[SigningPage] Document not found:', docId);
           setState('invalid');
@@ -79,33 +79,33 @@ function SigningPageContent() {
     initializeAndValidate();
   }, [docId, token]);
 
-const handleSignatureSave = async (signature: SignatureData) => {
-  if (!docId || state !== 'ready') return;
+  const handleSignatureSave = async (signature: SignatureData) => {
+    if (!docId || state !== 'ready') return;
 
-  setState('saving');
-  try {
-    console.log('[SigningPage] Saving signature...', signature);
-    await updateSignature(docId, signature);
-    console.log('[SigningPage] Signature saved successfully');
-    setState('success');
-    
-    // Clean up anonymous user after successful save
+    setState('saving');
     try {
-      if (auth.currentUser && auth.currentUser.isAnonymous) {
-        console.log('[SigningPage] Deleting anonymous user...');
-        await auth.currentUser.delete();
-        console.log('[SigningPage] Anonymous user deleted successfully');
+      console.log('[SigningPage] Saving signature...', signature);
+      await updateSignature(docId, signature);
+      console.log('[SigningPage] Signature saved successfully');
+      setState('success');
+
+      // Clean up anonymous user after successful save
+      try {
+        if (auth.currentUser && auth.currentUser.isAnonymous) {
+          console.log('[SigningPage] Deleting anonymous user...');
+          await auth.currentUser.delete();
+          console.log('[SigningPage] Anonymous user deleted successfully');
+        }
+      } catch (deleteError) {
+        // Don't fail the whole process if user deletion fails
+        console.warn('[SigningPage] Failed to delete anonymous user:', deleteError);
       }
-    } catch (deleteError) {
-      // Don't fail the whole process if user deletion fails
-      console.warn('[SigningPage] Failed to delete anonymous user:', deleteError);
+
+    } catch (error) {
+      console.error('[SigningPage] Error saving signature:', error);
+      setState('error');
+      setError('Error al guardar la firma');
     }
-    
-  } catch (error) {
-    console.error('[SigningPage] Error saving signature:', error);
-    setState('error');
-    setError('Error al guardar la firma');
-   }
   };
 
   if (state === 'loading') {
@@ -172,7 +172,7 @@ const handleSignatureSave = async (signature: SignatureData) => {
               <p className="text-gray-600">Entrada de Combustible</p>
             </div>
           </div>
-          
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-2">
               <div>
@@ -192,7 +192,7 @@ const handleSignatureSave = async (signature: SignatureData) => {
             disabled={state === 'saving'}
             className="w-full"
           />
-          
+
           {state === 'saving' && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2">

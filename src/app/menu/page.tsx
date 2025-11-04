@@ -3,13 +3,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Search, XCircle } from "lucide-react";
-import Protected from "../components/protected";
+import Protected from "../../components/protected";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { auth } from "../lib/firebase/client";
-import { fetchAvailableModules } from "../lib/firebase/modules";
+import { auth } from "../../lib/firebase/client";
+import { fetchAvailableModules } from "../../lib/firebase/modules";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase/client";
+import { db } from "../../lib/firebase/client";
 
 // Dynamic module discovery using webpack's require.context
 function getAvailableModuleFiles(): Record<string, () => Promise<any>> {
@@ -17,14 +17,14 @@ function getAvailableModuleFiles(): Record<string, () => Promise<any>> {
 
   try {
     // Use require.context to get all .tsx files in components/modules
-    const context = require.context('../components/modules', false, /\.tsx$/);
+    const context = require.context('../../components/modules', false, /\.tsx$/);
 
     context.keys().forEach((filePath: string) => {
       // Extract filename without extension (e.g., "./ECOM01.tsx" -> "ECOM01")
       const moduleName = filePath.replace('./', '').replace('.tsx', '').toUpperCase();
 
       // Create dynamic import function
-      moduleFiles[moduleName] = () => import(`../components/modules/${moduleName}`);
+      moduleFiles[moduleName] = () => import(`../../components/modules/${moduleName}`);
     });
 
     console.log('[Menu] Discovered module files:', Object.keys(moduleFiles));

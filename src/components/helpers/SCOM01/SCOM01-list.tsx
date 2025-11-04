@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { X, FileDown, FileSpreadsheet, RefreshCw } from "lucide-react";
 import * as XLSX from 'xlsx';
-import { generateSCOM01Pdf } from '../lib/utils/pdfDocumentGenerator-SCOM01';
+import { generateSCOM01Pdf } from '../../../lib/utils/pdfDocumentGenerator-SCOM01';
 
 // Types
 type CargaFlota = {
@@ -62,8 +62,8 @@ export default function SCOM01DownloadModal({
   if (!isOpen) return null;
 
   // Format date for display
-  const displayDate = dateString ? 
-    dateString.split('-').reverse().join('/') : 
+  const displayDate = dateString ?
+    dateString.split('-').reverse().join('/') :
     new Date().toLocaleDateString('es-ES');
 
   // Download PDF function
@@ -116,7 +116,7 @@ export default function SCOM01DownloadModal({
 
       // Create workbook
       const workbook = XLSX.utils.book_new();
-      
+
       // Create main worksheet
       const worksheet = XLSX.utils.json_to_sheet(excelData);
 
@@ -145,9 +145,9 @@ export default function SCOM01DownloadModal({
           'Final': Tfinal || '-'
         }
       ];
-      
+
       const totalizadoresSheet = XLSX.utils.json_to_sheet(totalizadoresData);
-      
+
       // Set column widths for totalizadores sheet
       const totalizadoresColumnWidths = [
         { wch: 20 },  // Inicial
@@ -163,7 +163,7 @@ export default function SCOM01DownloadModal({
 
       // Save file
       XLSX.writeFile(workbook, filename);
-      
+
       onClose(); // Close modal after successful download
     } catch (error) {
       console.error('Error generating Excel:', error);

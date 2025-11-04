@@ -4,8 +4,8 @@
 
 import React, { useEffect, useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../lib/firebase/client";
-import { useAuth } from "../components/auth-context";
+import { auth } from "../../lib/firebase/client";
+import { useAuth } from "../../components/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FirebaseError } from "firebase/app";
 

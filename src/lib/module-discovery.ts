@@ -267,7 +267,7 @@ export function createModuleRegistry(
 export function generateModuleTemplate(code: string, description: string): string {
   const upperCode = code.toUpperCase();
   
-  return `// /app/components/modules/${upperCode}.tsx
+  return `// /components/modules/${upperCode}.tsx
 // ${upperCode} – ${description}
 
 "use client";
