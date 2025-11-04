@@ -5,11 +5,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../components/auth-context";
 import { ClientSuspenseWrapper } from "../components/ClientSuspenseWrapper";
+import { InactivityDetector } from "../components/InactivityDetector";
 import 'reactflow/dist/style.css';
 
 export const metadata: Metadata = {
   title: "GS CORE - ERP",
-  description: "Gs core es un sistema ERP diseñado para la facilidad de uso y cumplimiento de la ISO 9001 en los procesos de gs concretos S.A",
+  description: "Gs core es un sistema ERP diseÃ±ado para la facilidad de uso y cumplimiento de la ISO 9001 en los procesos de gs concretos S.A",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </ClientSuspenseWrapper>
         </AuthProvider>
+        <InactivityDetector />
       </body>
     </html>
   );

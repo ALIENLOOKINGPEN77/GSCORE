@@ -20,11 +20,24 @@ type GeneralFormData = {
   fechaDeEmision: string;
   fechaAEjecutar: string;
   tecnicosAsignados: string[];
+  descripcion: string;
+};
+
+type TallerFormData = {
+  vehicleType: 'interno' | 'externo' | '';
+  unidadMovil: string;
+  conductor: string;
+  kilometraje: string;
+  horometro: string;
+  fechaDeEmision: string;
+  fechaAEjecutar: string;
+  descripcion: string;
+  observaciones: string;
 };
 
 type ValidationResult = {
   isValid: boolean;
-  errors: Partial<Record<keyof GeneralFormData, string>>;
+  errors: Record<string, string>;
 };
 
 type ToastMessage = {
@@ -55,7 +68,8 @@ const DropdownField = ({
   options,
   error,
   disabled = false,
-  placeholder = 'Seleccione una opción'
+  placeholder = 'Seleccione una opción',
+  required = true
 }: {
   label: string;
   value: string;
@@ -64,11 +78,12 @@ const DropdownField = ({
   error?: string;
   disabled?: boolean;
   placeholder?: string;
+  required?: boolean;
 }) => {
   return (
     <div className="flex flex-col">
       <label className="text-sm font-medium text-gray-700 mb-1">
-        {label} <span className="text-red-500">*</span>
+        {label} {required && <span className="text-red-500">*</span>}
       </label>
       <select
         value={value}
@@ -132,6 +147,51 @@ const FormField = ({
         className={`px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
           error ? 'border-red-300 bg-red-50' : 'border-gray-300'
         } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+      />
+      {error && (
+        <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
+          <AlertCircle size={12} />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// TEXTAREA FIELD COMPONENT
+// ============================================================================
+
+const TextareaField = ({
+  label,
+  value,
+  onChange,
+  error,
+  placeholder = '',
+  required = false,
+  rows = 3
+}: {
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  error?: string;
+  placeholder?: string;
+  required?: boolean;
+  rows?: number;
+}) => {
+  return (
+    <div className="flex flex-col">
+      <label className="text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <textarea
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        rows={rows}
+        className={`px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+          error ? 'border-red-300 bg-red-50' : 'border-gray-300'
+        }`}
       />
       {error && (
         <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
@@ -224,19 +284,56 @@ export default function CORD01() {
   
   // State
   const [orderType, setOrderType] = useState<OrderType>('General');
-  const [formData, setFormData] = useState<GeneralFormData>({
+  const [generalFormData, setGeneralFormData] = useState<GeneralFormData>({
     tipo: '',
     equipo: '',
     fechaDeEmision: getTodayDate(),
     fechaAEjecutar: '',
     tecnicosAsignados: [],
+    descripcion: '',
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof GeneralFormData, string>>>({});
+  const [tallerFormData, setTallerFormData] = useState<TallerFormData>({
+    vehicleType: '',
+    unidadMovil: '',
+    conductor: '',
+    kilometraje: '',
+    horometro: '',
+    fechaDeEmision: getTodayDate(),
+    fechaAEjecutar: '',
+    descripcion: '',
+    observaciones: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [internalVehicles, setInternalVehicles] = useState<string[]>([]);
+  const [loadingDefaults, setLoadingDefaults] = useState(true);
 
   // Hardcoded tipo options
   const tipoOptions: TipoTrabajo[] = ['Mecanico', 'Electrico', 'Preventivo', 'Correctivo', 'Otro'];
+
+  // Load defaults on mount
+  useEffect(() => {
+    loadDefaults();
+  }, []);
+
+  const loadDefaults = async () => {
+    try {
+      setLoadingDefaults(true);
+      const defaultsRef = doc(db, 'defaults', 'work_order_defaults');
+      const defaultsSnap = await getDoc(defaultsRef);
+      
+      if (defaultsSnap.exists()) {
+        const data = defaultsSnap.data();
+        setInternalVehicles(data.internal_vehicles || []);
+      }
+    } catch (error) {
+      console.error('Error loading defaults:', error);
+      showToast('error', 'Error al cargar configuración');
+    } finally {
+      setLoadingDefaults(false);
+    }
+  };
 
   // Show toast
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
@@ -244,23 +341,23 @@ export default function CORD01() {
     setTimeout(() => setToast(null), 5000);
   }, []);
 
-  // Validate form
-  const validateForm = useCallback((): ValidationResult => {
-    const newErrors: Partial<Record<keyof GeneralFormData, string>> = {};
+  // Validate General form
+  const validateGeneralForm = useCallback((): ValidationResult => {
+    const newErrors: Record<string, string> = {};
 
-    if (!formData.tipo) {
+    if (!generalFormData.tipo) {
       newErrors.tipo = 'Seleccione un tipo de trabajo';
     }
 
-    if (!formData.equipo.trim()) {
+    if (!generalFormData.equipo.trim()) {
       newErrors.equipo = 'Ingrese el equipo';
     }
 
-    if (!formData.fechaAEjecutar) {
+    if (!generalFormData.fechaAEjecutar) {
       newErrors.fechaAEjecutar = 'Seleccione la fecha a ejecutar';
     }
 
-    if (formData.tecnicosAsignados.length === 0) {
+    if (generalFormData.tecnicosAsignados.length === 0) {
       newErrors.tecnicosAsignados = 'Agregue al menos un técnico';
     }
 
@@ -268,13 +365,43 @@ export default function CORD01() {
       isValid: Object.keys(newErrors).length === 0,
       errors: newErrors,
     };
-  }, [formData]);
+  }, [generalFormData]);
+
+  // Validate Taller form
+  const validateTallerForm = useCallback((): ValidationResult => {
+    const newErrors: Record<string, string> = {};
+
+    if (!tallerFormData.vehicleType) {
+      newErrors.vehicleType = 'Seleccione el tipo de vehículo';
+    }
+
+    if (!tallerFormData.unidadMovil.trim()) {
+      newErrors.unidadMovil = 'Seleccione o ingrese la unidad móvil';
+    }
+
+    if (!tallerFormData.conductor.trim()) {
+      newErrors.conductor = 'Ingrese el conductor';
+    }
+
+    if (!tallerFormData.fechaAEjecutar) {
+      newErrors.fechaAEjecutar = 'Seleccione la fecha a ejecutar';
+    }
+
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      errors: newErrors,
+    };
+  }, [tallerFormData]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validation = validateForm();
+    // Validate based on order type
+    const validation = orderType === 'General' 
+      ? validateGeneralForm() 
+      : validateTallerForm();
+    
     setErrors(validation.errors);
 
     if (!validation.isValid) {
@@ -293,36 +420,75 @@ export default function CORD01() {
       // Generate a new document reference with auto-ID
       const newDocRef = doc(collection(db, 'CORD01'));
 
-      // Prepare data for Firestore
-      const workOrderData = {
+      // Prepare data based on order type
+      let workOrderData: any = {
         orderId: newDocRef.id,
         orderType: orderType,
-        type: formData.tipo,
-        equipment: formData.equipo,
-        issueDate: formData.fechaDeEmision,
-        executionDate: formData.fechaAEjecutar,
-        assignedTechnicians: formData.tecnicosAsignados,
-        workPerformed: '', // Empty, not displayed on creation
-        verifiedBy: '', // Empty, not displayed on creation
-        componentsUsed: {}, // Empty map
-        state: false, // Active order management
+        state: false,
         createdAt: serverTimestamp(),
         createdBy: user.uid,
         createdByEmail: user.email || '',
       };
+
+      if (orderType === 'General') {
+        workOrderData = {
+          ...workOrderData,
+          type: generalFormData.tipo,
+          equipment: generalFormData.equipo,
+          issueDate: generalFormData.fechaDeEmision,
+          executionDate: generalFormData.fechaAEjecutar,
+          assignedTechnicians: generalFormData.tecnicosAsignados,
+          description: generalFormData.descripcion,
+          workPerformed: '',
+          verifiedBy: '',
+          componentsUsed: {},
+        };
+      } else {
+        // Taller
+        workOrderData = {
+          ...workOrderData,
+          vehicleType: tallerFormData.vehicleType,
+          mobileUnit: tallerFormData.unidadMovil,
+          driver: tallerFormData.conductor,
+          mileage: tallerFormData.kilometraje ? parseFloat(tallerFormData.kilometraje) : 0,
+          hourmeter: tallerFormData.horometro ? parseFloat(tallerFormData.horometro) : 0,
+          issueDate: tallerFormData.fechaDeEmision,
+          executionDate: tallerFormData.fechaAEjecutar,
+          description: tallerFormData.descripcion,
+          observations: tallerFormData.observaciones,
+          signatureConformity: '',
+          verifiedBy: '',
+          componentsUsed: {},
+        };
+      }
 
       await setDoc(newDocRef, workOrderData);
 
       showToast('success', `Orden de trabajo creada exitosamente: ${newDocRef.id}`);
 
       // Reset form
-      setFormData({
-        tipo: '',
-        equipo: '',
-        fechaDeEmision: getTodayDate(),
-        fechaAEjecutar: '',
-        tecnicosAsignados: [],
-      });
+      if (orderType === 'General') {
+        setGeneralFormData({
+          tipo: '',
+          equipo: '',
+          fechaDeEmision: getTodayDate(),
+          fechaAEjecutar: '',
+          tecnicosAsignados: [],
+          descripcion: '',
+        });
+      } else {
+        setTallerFormData({
+          vehicleType: '',
+          unidadMovil: '',
+          conductor: '',
+          kilometraje: '',
+          horometro: '',
+          fechaDeEmision: getTodayDate(),
+          fechaAEjecutar: '',
+          descripcion: '',
+          observaciones: '',
+        });
+      }
       setErrors({});
 
     } catch (error) {
@@ -333,17 +499,17 @@ export default function CORD01() {
     }
   };
 
-  // Add technician
+  // Add technician (General form only)
   const handleAddTechnician = useCallback((technician: string) => {
-    setFormData(prev => ({
+    setGeneralFormData(prev => ({
       ...prev,
       tecnicosAsignados: [...prev.tecnicosAsignados, technician],
     }));
   }, []);
 
-  // Remove technician
+  // Remove technician (General form only)
   const handleRemoveTechnician = useCallback((index: number) => {
-    setFormData(prev => ({
+    setGeneralFormData(prev => ({
       ...prev,
       tecnicosAsignados: prev.tecnicosAsignados.filter((_, i) => i !== index),
     }));
@@ -391,7 +557,12 @@ export default function CORD01() {
         </div>
 
         {/* Form Content */}
-        {orderType === 'General' ? (
+        {loadingDefaults ? (
+          <div className="bg-white border rounded-lg shadow-sm p-12 text-center">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Cargando configuración...</p>
+          </div>
+        ) : orderType === 'General' ? (
           <form onSubmit={handleSubmit} className="bg-white border rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Orden General</h2>
 
@@ -399,8 +570,8 @@ export default function CORD01() {
               {/* Tipo */}
               <DropdownField
                 label="Tipo"
-                value={formData.tipo}
-                onChange={(e) => setFormData({ ...formData, tipo: e.target.value as TipoTrabajo })}
+                value={generalFormData.tipo}
+                onChange={(e) => setGeneralFormData({ ...generalFormData, tipo: e.target.value as TipoTrabajo })}
                 options={tipoOptions}
                 error={errors.tipo}
               />
@@ -408,8 +579,8 @@ export default function CORD01() {
               {/* Equipo */}
               <FormField
                 label="Equipo"
-                value={formData.equipo}
-                onChange={(e) => setFormData({ ...formData, equipo: e.target.value })}
+                value={generalFormData.equipo}
+                onChange={(e) => setGeneralFormData({ ...generalFormData, equipo: e.target.value })}
                 error={errors.equipo}
                 placeholder="Nombre del equipo"
               />
@@ -417,7 +588,7 @@ export default function CORD01() {
               {/* Fecha de Emisión */}
               <FormField
                 label="Fecha de Emisión"
-                value={formData.fechaDeEmision}
+                value={generalFormData.fechaDeEmision}
                 onChange={() => {}} // No-op, field is read-only
                 disabled
                 type="date"
@@ -426,8 +597,8 @@ export default function CORD01() {
               {/* Fecha a Ejecutar */}
               <FormField
                 label="Fecha a Ejecutar"
-                value={formData.fechaAEjecutar}
-                onChange={(e) => setFormData({ ...formData, fechaAEjecutar: e.target.value })}
+                value={generalFormData.fechaAEjecutar}
+                onChange={(e) => setGeneralFormData({ ...generalFormData, fechaAEjecutar: e.target.value })}
                 error={errors.fechaAEjecutar}
                 type="date"
               />
@@ -435,10 +606,19 @@ export default function CORD01() {
               {/* Técnicos Asignados */}
               <TechniciansInput
                 label="Técnicos Asignados"
-                technicians={formData.tecnicosAsignados}
+                technicians={generalFormData.tecnicosAsignados}
                 onAdd={handleAddTechnician}
                 onRemove={handleRemoveTechnician}
                 error={errors.tecnicosAsignados}
+              />
+
+              {/* Descripción */}
+              <TextareaField
+                label="Descripción"
+                value={generalFormData.descripcion}
+                onChange={(e) => setGeneralFormData({ ...generalFormData, descripcion: e.target.value })}
+                placeholder="Descripción del trabajo (opcional)"
+                required={false}
               />
             </div>
 
@@ -464,14 +644,180 @@ export default function CORD01() {
             </div>
           </form>
         ) : (
-          <div className="bg-white border rounded-lg shadow-sm p-12 text-center">
-            <div className="text-gray-400 mb-4">
-              <FileText size={64} className="mx-auto" />
+          <form onSubmit={handleSubmit} className="bg-white border rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Orden de Taller</h2>
+
+            <div className="space-y-4">
+              {/* Vehicle Type Selection */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Vehículo <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="vehicleType"
+                      value="interno"
+                      checked={tallerFormData.vehicleType === 'interno'}
+                      onChange={(e) => {
+                        setTallerFormData({ 
+                          ...tallerFormData, 
+                          vehicleType: 'interno',
+                          unidadMovil: '' // Reset field when switching
+                        });
+                      }}
+                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Vehículo Interno</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="vehicleType"
+                      value="externo"
+                      checked={tallerFormData.vehicleType === 'externo'}
+                      onChange={(e) => {
+                        setTallerFormData({ 
+                          ...tallerFormData, 
+                          vehicleType: 'externo',
+                          unidadMovil: '' // Reset field when switching
+                        });
+                      }}
+                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Vehículo Externo</span>
+                  </label>
+                </div>
+                {errors.vehicleType && (
+                  <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
+                    <AlertCircle size={12} />
+                    <span>{errors.vehicleType}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Unidad Móvil - Dropdown (interno) or Text Input (externo) */}
+              {tallerFormData.vehicleType === 'interno' ? (
+                <DropdownField
+                  label="Unidad Móvil"
+                  value={tallerFormData.unidadMovil}
+                  onChange={(e) => setTallerFormData({ ...tallerFormData, unidadMovil: e.target.value })}
+                  options={internalVehicles}
+                  error={errors.unidadMovil}
+                  placeholder="Seleccione una unidad móvil"
+                  disabled={false}
+                />
+              ) : tallerFormData.vehicleType === 'externo' ? (
+                <FormField
+                  label="Unidad Móvil"
+                  value={tallerFormData.unidadMovil}
+                  onChange={(e) => setTallerFormData({ ...tallerFormData, unidadMovil: e.target.value })}
+                  error={errors.unidadMovil}
+                  placeholder="Ingrese la unidad móvil"
+                  disabled={false}
+                />
+              ) : (
+                <div className="flex flex-col opacity-50">
+                  <label className="text-sm font-medium text-gray-700 mb-1">
+                    Unidad Móvil <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    placeholder="Seleccione primero el tipo de vehículo"
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                  />
+                </div>
+              )}
+
+              {/* Conductor */}
+              <FormField
+                label="Conductor"
+                value={tallerFormData.conductor}
+                onChange={(e) => setTallerFormData({ ...tallerFormData, conductor: e.target.value })}
+                error={errors.conductor}
+                placeholder="Nombre del conductor"
+              />
+
+              {/* Kilometraje */}
+              <FormField
+                label="Kilometraje"
+                value={tallerFormData.kilometraje}
+                onChange={(e) => setTallerFormData({ ...tallerFormData, kilometraje: e.target.value })}
+                placeholder="0"
+                type="number"
+                required={false}
+              />
+
+              {/* Horómetro */}
+              <FormField
+                label="Horómetro"
+                value={tallerFormData.horometro}
+                onChange={(e) => setTallerFormData({ ...tallerFormData, horometro: e.target.value })}
+                placeholder="0"
+                type="number"
+                required={false}
+              />
+
+              {/* Fecha de Emisión */}
+              <FormField
+                label="Fecha de Emisión"
+                value={tallerFormData.fechaDeEmision}
+                onChange={() => {}} // No-op, field is read-only
+                disabled
+                type="date"
+              />
+
+              {/* Fecha a Ejecutar */}
+              <FormField
+                label="Fecha a Ejecutar"
+                value={tallerFormData.fechaAEjecutar}
+                onChange={(e) => setTallerFormData({ ...tallerFormData, fechaAEjecutar: e.target.value })}
+                error={errors.fechaAEjecutar}
+                type="date"
+              />
+
+              {/* Descripción */}
+              <TextareaField
+                label="Descripción"
+                value={tallerFormData.descripcion}
+                onChange={(e) => setTallerFormData({ ...tallerFormData, descripcion: e.target.value })}
+                placeholder="Descripción del trabajo (opcional)"
+                required={false}
+              />
+
+              {/* Observaciones */}
+              <TextareaField
+                label="Observaciones"
+                value={tallerFormData.observaciones}
+                onChange={(e) => setTallerFormData({ ...tallerFormData, observaciones: e.target.value })}
+                placeholder="Observaciones adicionales (opcional)"
+                required={false}
+              />
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Orden de Taller</h2>
-            <p className="text-gray-600 text-lg">To Be Developed</p>
-            <p className="text-gray-500 text-sm mt-2">Esta funcionalidad estará disponible próximamente</p>
-          </div>
+
+            {/* Submit Button */}
+            <div className="mt-6 flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Crear Orden
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Toast Notification */}

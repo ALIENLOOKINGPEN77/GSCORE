@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Search, XCircle } from "lucide-react";
+import { Search, XCircle, ChevronRight, ChevronDown } from "lucide-react";
 import Protected from "../../components/protected";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
@@ -136,6 +136,12 @@ export default function MenuPage() {
   // Get available module files (this runs once at component mount)
   const availableModuleFiles = useMemo(() => getAvailableModuleFiles(), []);
 
+  // Module navigation suits state
+  const [moduleSuits, setModuleSuits] = useState<Record<string, string[]>>({});
+  const [expandedSuits, setExpandedSuits] = useState<Set<string>>(new Set());
+  const [userModuleAccess, setUserModuleAccess] = useState<string[]>([]);
+  const [isLoadingSuits, setIsLoadingSuits] = useState(true);
+
 
 
   // Set random background image on mount
@@ -188,6 +194,98 @@ export default function MenuPage() {
     };
   }, [showToast]);
 
+  // Load module navigation data from Firestore
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const modulesDocRef = doc(db, "defaults", "modules");
+        const modulesSnap = await getDoc(modulesDocRef);
+
+        if (modulesSnap.exists() && mounted) {
+          const data = modulesSnap.data();
+          if (data.module_nav) {
+            console.log("[Menu] Loaded module_nav:", data.module_nav);
+            console.log("[Menu] Module_nav suits:", Object.keys(data.module_nav));
+            setModuleSuits(data.module_nav);
+          } else {
+            console.warn("[Menu] module_nav field not found in modules document");
+          }
+        } else {
+          console.warn("[Menu] modules document does not exist");
+        }
+      } catch (err) {
+        console.error("[Menu] Failed to load module navigation:", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Load user's module access
+  useEffect(() => {
+    let mounted = true;
+
+    // Use a slight delay to ensure auth is ready
+    const timeoutId = setTimeout(async () => {
+      try {
+        const currentUser = auth.currentUser;
+        console.log("[Menu] Loading user module access, current user:", currentUser?.email);
+
+        if (!currentUser || !currentUser.email) {
+          console.log("[Menu] No authenticated user found for module access");
+          if (mounted) {
+            setIsLoadingSuits(false);
+          }
+          return;
+        }
+
+        const userParamsRef = doc(db, "defaults", "users_parameters");
+        const userParamsSnap = await getDoc(userParamsRef);
+
+        if (!userParamsSnap.exists()) {
+          console.warn("[Menu] users_parameters document does not exist");
+          if (mounted) {
+            setIsLoadingSuits(false);
+          }
+          return;
+        }
+
+        if (mounted) {
+          const userParamsData = userParamsSnap.data();
+          console.log("[Menu] User params data keys:", Object.keys(userParamsData));
+
+          const userData = userParamsData[currentUser.email];
+
+          if (!userData) {
+            console.warn("[Menu] No data found for user:", currentUser.email);
+            setIsLoadingSuits(false);
+            return;
+          }
+
+          if (Array.isArray(userData.module_access)) {
+            console.log("[Menu] User module access loaded:", userData.module_access);
+            setUserModuleAccess(userData.module_access);
+          } else {
+            console.warn("[Menu] module_access is not an array:", userData.module_access);
+          }
+          setIsLoadingSuits(false);
+        }
+      } catch (err) {
+        console.error("[Menu] Failed to load user module access:", err);
+        if (mounted) {
+          setIsLoadingSuits(false);
+        }
+      }
+    }, 500); // Small delay to ensure auth is ready
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
   // Dynamic module loader with better error handling
   const loadModule = useCallback(async (code: string): Promise<React.ComponentType<any> | null> => {
     if (!availableModuleFiles[code]) {
@@ -196,204 +294,211 @@ export default function MenuPage() {
     }
 
     try {
-      setIsLoadingModule(true);
-      console.log(`[Menu] Dynamically importing module: ${code}`);
+      console.log(`[Menu] Loading module file: ${code}`);
+      const imported = await availableModuleFiles[code]();
 
-      const moduleExport = await availableModuleFiles[code]();
+      console.log(`[Menu] Module ${code} imported:`, imported);
 
-      // Try to get the component in different ways
-      let ModuleComponent = moduleExport.default || moduleExport;
+      // Try to find the actual component in different export patterns
+      let ComponentToUse: any = null;
 
-      // If ModuleComponent is still an object, try to extract the component
-      if (typeof ModuleComponent === 'object' && ModuleComponent !== null) {
-        // Check if it has a default property
-        if (ModuleComponent.default) {
-          ModuleComponent = ModuleComponent.default;
-        }
-        // Check if it has the same name as the code
-        else if (ModuleComponent[code]) {
-          ModuleComponent = ModuleComponent[code];
+      // Check for default export
+      if (imported.default) {
+        ComponentToUse = imported.default;
+      }
+      // Check for named export matching the module code
+      else if (imported[code]) {
+        ComponentToUse = imported[code];
+      }
+      // Check for any other exported component
+      else {
+        const exportKeys = Object.keys(imported);
+        console.log(`[Menu] Available exports for ${code}:`, exportKeys);
+        if (exportKeys.length > 0) {
+          ComponentToUse = imported[exportKeys[0]];
         }
       }
 
-      // Validate that we have a valid React component
-      if (!isValidReactComponent(ModuleComponent)) {
-        console.warn(`[Menu] Module ${code} does not export a valid React component:`, typeof ModuleComponent, ModuleComponent);
+      if (!ComponentToUse) {
+        console.error(`[Menu] No valid component found in ${code}`);
         return null;
       }
 
-      console.log(`[Menu] Successfully loaded module: ${code}`);
-      return ModuleComponent;
-    } catch (error) {
-      console.error(`[Menu] Failed to load module ${code}:`, error);
+      // Validate the component
+      if (isValidReactComponent(ComponentToUse)) {
+        console.log(`[Menu] Successfully loaded ${code}`);
+        return ComponentToUse;
+      } else {
+        console.error(`[Menu] ${code} is not a valid React component`);
+        return null;
+      }
+    } catch (err) {
+      console.error(`[Menu] Failed to load ${code}:`, err);
       return null;
-    } finally {
-      setIsLoadingModule(false);
     }
   }, [availableModuleFiles]);
 
-  // React to ?m=CODE when the list has loaded
-  useEffect(() => {
-    const m = searchParams.get("m");
-    if (!availableSet) return; // wait until list loads
+  // Handle module click from navigation
+  const handleModuleClick = useCallback(async (code: string) => {
+    console.log(`[Menu] Module clicked: ${code}`);
 
-    if (!m) {
-      console.log("[Menu] No ?m param → background image");
-      setActiveCode(null);
-      setActiveModuleComponent(null);
+    // Check if module is available
+    if (!availableSet || !availableSet.has(code)) {
+      console.log(`[Menu] Module ${code} not in available set`);
+      showToast(`Módulo ${code} no está disponible en Firestore`);
       return;
     }
 
-    const code = m.toUpperCase();
-    console.log("[Menu] URL requested module:", code);
+    // Check if user has access
+    const hasAccess = await checkUserAccess(code);
+    if (!hasAccess) {
+      console.log(`[Menu] User does not have access to ${code}`);
+      showToast(`No tienes acceso al módulo ${code}`);
+      return;
+    }
 
-    // Load the module asynchronously
-    (async () => {
-      // Case (1): code not in Firestore list
-      if (!availableSet.has(code)) {
-        showToast(`Code "${code}" does not exist.`);
-        setActiveCode(null);
-        setActiveModuleComponent(null);
-        return;
-      }
-
-      // Case (2): Check user access
-      const hasAccess = await checkUserAccess(code);
-      if (!hasAccess) {
-        showToast("Access Denied");
-        setActiveCode(null);
-        setActiveModuleComponent(null);
-        return;
-      }
-
-
-      if (!availableModuleFiles[code]) {
-        showToast(`Module not developed yet: ${code}`);
-        setActiveCode(null);
-        setActiveModuleComponent(null);
-        return;
-      }
-
-      // Case (4): exists and has file - try to load it
-      console.log("[Menu] Loading module from URL:", code);
-      const ModuleComponent = await loadModule(code);
-
-      if (!ModuleComponent) {
-        showToast(`Module not developed yet: ${code}`);
-        setActiveCode(null);
-        setActiveModuleComponent(null);
-        return;
-      }
-
-      setActiveCode(code);
-      setActiveModuleComponent(() => ModuleComponent);
-    })();
-  }, [searchParams, availableSet, availableModuleFiles, showToast, loadModule]);
-
-  // Fake loading function
-  const fakeLoad = useCallback(async () => {
-    const duration = 1000 + Math.floor(Math.random() * 2000);
-    console.log(`[Menu] Fake load start. Duration: ${duration}ms`);
-
+    // Show fake loading overlay with logo
     setIsFakeLoading(true);
     setLogoVisible(false);
 
-    requestAnimationFrame(() => {
+    // Fade in the logo after a brief delay
+    setTimeout(() => {
       setLogoVisible(true);
-    });
+    }, 50);
 
-    await new Promise((r) => setTimeout(r, duration));
+    // Wait for minimum display time
+    await new Promise(resolve => setTimeout(resolve, 1200));
 
-    console.log("[Menu] Fake load fade-out");
-    setLogoVisible(false);
-    await new Promise((r) => setTimeout(r, 350));
+    setIsLoadingModule(true);
+    const Component = await loadModule(code);
+    setIsLoadingModule(false);
 
-    setIsFakeLoading(false);
-    console.log("[Menu] Fake load end");
-  }, []);
-
-  // Handle search submit with dynamic module loading and access control
-  const handleSubmit = useCallback(
-    async (e?: React.FormEvent) => {
-      if (e) e.preventDefault();
-      const code = query.trim().toUpperCase();
-      console.log("[Menu] Submitting T-Code:", code);
-
-      if (!code) {
-        showToast('Enter a T-Code (try "ECOM01" or "TEST01").');
-        return;
-      }
-
-      if (!availableSet) {
-        showToast("Loading modules…");
-        return;
-      }
-
-      // Case (1): Not in Firebase list
-      if (!availableSet.has(code)) {
-        showToast(`Code "${code}" does not exist.`);
-        return;
-      }
-
-      // Case (2): Check user access FIRST
-      const hasAccess = await checkUserAccess(code);
-      if (!hasAccess) {
-        showToast("Access Denied");
-        return;
-      }
-
-      // Case (3): In list but no file available
-      if (!availableModuleFiles[code]) {
-        showToast(`Module not developed yet: ${code}`);
-        return;
-      }
-
-      // Case (4): Try to load the module
-      console.log("[Menu] Loading module:", code);
-
-      // Clear current module for loading overlay
-      setActiveCode(null);
-      setActiveModuleComponent(null);
-
-      // Update URL
-      const url = new URL(window.location.href);
-      url.searchParams.set("m", code);
-      router.replace(url.pathname + "?" + url.searchParams.toString());
-
-      // Show fake loading overlay
-      await fakeLoad();
-
-      // Load the module
-      const ModuleComponent = await loadModule(code);
-
-      if (!ModuleComponent) {
-        showToast(`Module not developed yet: ${code}`);
-        return;
-      }
-
-      // Set the active module
+    if (Component) {
       setActiveCode(code);
-      setActiveModuleComponent(() => ModuleComponent);
-    },
-    [query, availableSet, availableModuleFiles, router, showToast, fakeLoad, loadModule]
-  );
+      setActiveModuleComponent(() => Component);
+      console.log(`[Menu] Active module set to: ${code}`);
+    } else {
+      showToast(`No se pudo cargar el módulo ${code}`);
+    }
 
-  // Enter key = submit
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") void handleSubmit();
-  };
+    // Hide the fake loading overlay
+    setIsFakeLoading(false);
+    setLogoVisible(false);
+  }, [availableSet, loadModule, showToast]);
 
-  // Clear module
-  const clearModule = () => {
+  // Clear active module
+  const clearModule = useCallback(() => {
     console.log("[Menu] Clearing active module");
     setActiveCode(null);
     setActiveModuleComponent(null);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("m");
-    router.replace(url.pathname + (url.search ? "?" + url.searchParams.toString() : ""));
-  };
+  }, []);
 
-  // Logout
+  // Search form submit handler
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = query.trim().toUpperCase();
+    if (!trimmed) return;
+
+    console.log(`[Menu] Searching for module: ${trimmed}`);
+
+    // Check availability first
+    if (!availableSet || !availableSet.has(trimmed)) {
+      console.log(`[Menu] Module ${trimmed} not found in available set`);
+      showToast(`Módulo ${trimmed} no encontrado`);
+      return;
+    }
+
+    // Check user access
+    const hasAccess = await checkUserAccess(trimmed);
+    if (!hasAccess) {
+      console.log(`[Menu] User does not have access to ${trimmed}`);
+      showToast(`No tienes acceso al módulo ${trimmed}`);
+      return;
+    }
+
+    // Show fake loading overlay with logo
+    setIsFakeLoading(true);
+    setLogoVisible(false);
+
+    // Fade in the logo after a brief delay
+    setTimeout(() => {
+      setLogoVisible(true);
+    }, 50);
+
+    // Wait for minimum display time
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    setIsLoadingModule(true);
+    const Component = await loadModule(trimmed);
+    setIsLoadingModule(false);
+
+    if (Component) {
+      setActiveCode(trimmed);
+      setActiveModuleComponent(() => Component);
+      setQuery("");
+      console.log(`[Menu] Active module set via search: ${trimmed}`);
+    } else {
+      showToast(`No se pudo cargar el módulo ${trimmed}`);
+    }
+
+    // Hide the fake loading overlay
+    setIsFakeLoading(false);
+    setLogoVisible(false);
+  }, [availableSet, loadModule, query, showToast]);
+
+  // Handle Escape key to clear search or close module
+  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      if (query) {
+        setQuery("");
+      } else if (activeCode) {
+        clearModule();
+      }
+    }
+  }, [query, activeCode, clearModule]);
+
+  // Compute accessible suits based on user's module access
+  const accessibleSuits = useMemo(() => {
+    console.log("[Menu] Computing accessible suits");
+    console.log("[Menu] User module access:", userModuleAccess);
+    console.log("[Menu] Module suits:", Object.keys(moduleSuits));
+
+    if (userModuleAccess.length === 0 || Object.keys(moduleSuits).length === 0) {
+      console.log("[Menu] No accessible suits - user access or suits empty");
+      return [];
+    }
+
+    const userAccessSet = new Set(userModuleAccess);
+    const result: [string, string[]][] = [];
+
+    Object.entries(moduleSuits).forEach(([suitName, modules]) => {
+      const accessibleModules = modules
+        .filter(mod => userAccessSet.has(mod))
+        .sort(); // Sort modules alphabetically
+      if (accessibleModules.length > 0) {
+        result.push([suitName, accessibleModules]);
+        console.log(`[Menu] Suit ${suitName} has ${accessibleModules.length} accessible modules:`, accessibleModules);
+      }
+    });
+
+    console.log("[Menu] Total accessible suits:", result.length);
+    return result.sort((a, b) => a[0].localeCompare(b[0])); // Sort suits alphabetically
+  }, [userModuleAccess, moduleSuits]);
+
+  // Toggle suit expansion
+  const toggleSuit = useCallback((suitName: string) => {
+    setExpandedSuits(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(suitName)) {
+        newSet.delete(suitName);
+      } else {
+        newSet.add(suitName);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Logout handler
   const handleLogout = async () => {
     console.log("[Menu] Signing out...");
     try {
@@ -445,12 +550,65 @@ export default function MenuPage() {
             </p>
           </div>
 
-          {/* Sidebar body (placeholder) */}
-          <div className="flex-1 p-4 overflow-hidden">
-            <div className="bg-gray-100 h-full rounded-md">
-              {/* You could show discovered modules here */}
-              <div className="p-2">
 
+          {/* Module Navigation */}
+          <div className="flex-1 p-4 overflow-hidden flex flex-col">
+            <div className="bg-gray-100 h-full rounded-md flex flex-col overflow-hidden">
+             
+              <div className="flex-1 overflow-y-auto p-2">
+                {isLoadingSuits ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-xs text-gray-500">Cargando módulos...</p>
+                    </div>
+                  </div>
+                ) : accessibleSuits.length === 0 ? (
+                  <p className="text-xs text-gray-500 p-2">No hay módulos disponibles</p>
+                ) : (
+                  <div className="space-y-1">
+                    {accessibleSuits.map(([suitName, modules]) => (
+                      <div key={suitName} className="border-b border-gray-200 pb-1">
+                        {/* Suit Header - Clickable to expand/collapse */}
+                        <button
+                          onClick={() => toggleSuit(suitName)}
+                          disabled={isLoadingModule || isFakeLoading}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-gray-200 transition-colors ${isLoadingModule || isFakeLoading ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                        >
+                          {expandedSuits.has(suitName) ? (
+                            <ChevronDown size={16} className="text-gray-600 shrink-0" />
+                          ) : (
+                            <ChevronRight size={16} className="text-gray-600 shrink-0" />
+                          )}
+                          <span className="text-sm font-medium text-gray-700 truncate">
+                            {suitName}
+                          </span>
+                        </button>
+
+                        {/* Module List - Shown when expanded */}
+                        {expandedSuits.has(suitName) && (
+                          <div className="mt-1 ml-6 space-y-0.5">
+                            {modules.map((moduleCode) => (
+                              <button
+                                key={moduleCode}
+                                onClick={() => handleModuleClick(moduleCode)}
+                                disabled={isLoadingModule || isFakeLoading}
+                                className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-blue-50 hover:text-blue-600 transition-colors ${activeCode === moduleCode
+                                    ? 'bg-blue-100 text-blue-700 font-medium'
+                                    : 'text-gray-600'
+                                  } ${isLoadingModule || isFakeLoading ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                              >
+                                {moduleCode}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -462,7 +620,7 @@ export default function MenuPage() {
               onClick={handleLogout}
               className="mt-3 text-gray-700 border px-3 py-1 rounded hover:bg-gray-50"
             >
-              Cerrar sesión
+              Cerrar Sesión
             </button>
           </div>
         </aside>
