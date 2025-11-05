@@ -459,6 +459,7 @@ export default function CORD01() {
           signatureConformity: '',
           verifiedBy: '',
           componentsUsed: {},
+          stateSig: false,
         };
       }
 
@@ -524,7 +525,6 @@ export default function CORD01() {
             <FileText size={32} className="text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Crear Orden de Trabajo</h1>
           </div>
-          <p className="text-gray-600">Registro de órdenes de trabajo para mantenimiento y reparaciones</p>
         </div>
 
         {/* Order Type Selection */}
