@@ -223,40 +223,58 @@ export default function FORD01() {
       setLoading(false);
     });
 
+    // State to hold both sets of taller orders
+    let pendingOrders: WorkOrder[] = [];
+    let signatureOrders: WorkOrder[] = [];
+
+    const combineTallerOrders = () => {
+      // Merge and remove duplicates based on orderId
+      const orderMap = new Map<string, WorkOrder>();
+      
+      [...pendingOrders, ...signatureOrders].forEach(order => {
+        orderMap.set(order.orderId, order);
+      });
+      
+      const allOrders = Array.from(orderMap.values());
+      
+      // Sort by createdAt
+      allOrders.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis() || 0;
+        const bTime = b.createdAt?.toMillis() || 0;
+        return bTime - aTime;
+      });
+      
+      setTallerOrders(allOrders);
+    };
+
+    // Independent listener for pending taller orders
     const unsubscribeTallerPending = onSnapshot(tallerPendingQuery, (snapshot) => {
-      const pendingOrders: WorkOrder[] = [];
+      pendingOrders = [];
       snapshot.forEach((doc) => {
         pendingOrders.push({ orderId: doc.id, ...doc.data() } as WorkOrder);
       });
-      
-      // Combine with signature pending orders
-      const unsubscribeTallerSig = onSnapshot(tallerSignatureQuery, (sigSnapshot) => {
-        const sigOrders: WorkOrder[] = [];
-        sigSnapshot.forEach((doc) => {
-          sigOrders.push({ orderId: doc.id, ...doc.data() } as WorkOrder);
-        });
-        
-        // Merge and sort by createdAt
-        const allOrders = [...pendingOrders, ...sigOrders];
-        allOrders.sort((a, b) => {
-          const aTime = a.createdAt?.toMillis() || 0;
-          const bTime = b.createdAt?.toMillis() || 0;
-          return bTime - aTime;
-        });
-        setTallerOrders(allOrders);
-      }, (error) => {
-        console.error("Error loading taller signature orders:", error);
-      });
-      
-      return unsubscribeTallerSig;
+      combineTallerOrders();
     }, (error) => {
       console.error("Error loading taller pending orders:", error);
+      setToast({ type: 'error', message: 'Error al cargar órdenes de taller' });
+    });
+
+    // Independent listener for signature pending taller orders
+    const unsubscribeTallerSignature = onSnapshot(tallerSignatureQuery, (snapshot) => {
+      signatureOrders = [];
+      snapshot.forEach((doc) => {
+        signatureOrders.push({ orderId: doc.id, ...doc.data() } as WorkOrder);
+      });
+      combineTallerOrders();
+    }, (error) => {
+      console.error("Error loading taller signature orders:", error);
       setToast({ type: 'error', message: 'Error al cargar órdenes de taller' });
     });
 
     return () => {
       unsubscribeGeneral();
       unsubscribeTallerPending();
+      unsubscribeTallerSignature();
     };
   }, [user]);
 

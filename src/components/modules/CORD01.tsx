@@ -441,6 +441,9 @@ export default function CORD01() {
           description: generalFormData.descripcion,
           workPerformed: '',
           verifiedBy: '',
+          stateSig: false,
+          stateUsed: false,
+          stateAudit: false,
           componentsUsed: {},
         };
       } else {
@@ -460,6 +463,8 @@ export default function CORD01() {
           verifiedBy: '',
           componentsUsed: {},
           stateSig: false,
+          stateUsed: false,
+          stateAudit: false,
         };
       }
 
