@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   X,
   Calendar,
@@ -12,7 +12,8 @@ import {
   AlertCircle,
   CheckCircle,
   FileSpreadsheet,
-  FileDown
+  FileDown,
+  ChevronDown
 } from "lucide-react";
 import {
   collection,
@@ -28,6 +29,7 @@ import { generateSCOM01CompuestoUnicoPdf } from "../../../lib/utils/pdfDocumentG
 import * as XLSX from 'xlsx';
 
 type SelectionMode = 'single' | 'range';
+type MainFilterType = 'internal' | 'external' | null;
 
 type CargaFlota = {
   id: string;
@@ -64,8 +66,6 @@ type CargaExterna = {
 
 type CargaDisplay = CargaFlota | CargaExterna;
 
-type FilterType = 'nroMovil' | 'empresa' | 'numeroChapa' | null;
-
 interface SCOM01CompuestoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -82,13 +82,45 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
   const [fetchedEntries, setFetchedEntries] = useState<CargaDisplay[]>([]);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<FilterType>(null);
-  const [selectedFilterValue, setSelectedFilterValue] = useState<string>('');
+
+  const [mainFilter, setMainFilter] = useState<MainFilterType>(null);
+  const [selectedSubFilters, setSelectedSubFilters] = useState<{
+    nroMovil: string[];
+    empresa: string[];
+    numeroChapa: string[];
+  }>({
+    nroMovil: [],
+    empresa: [],
+    numeroChapa: []
+  });
+
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRefs = {
+    nroMovil: useRef<HTMLDivElement>(null),
+    empresa: useRef<HTMLDivElement>(null),
+    numeroChapa: useRef<HTMLDivElement>(null)
+  };
+
   const [error, setError] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
   const [totalizadorInicial, setTotalizadorInicial] = useState<string>('');
   const [totalizadorFinal, setTotalizadorFinal] = useState<string>('');
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedOutside = Object.values(dropdownRefs).every(
+        ref => ref.current && !ref.current.contains(target)
+      );
+      if (clickedOutside) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -127,8 +159,9 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
       setRangeEnd(null);
       setFetchedEntries([]);
       setDataFetched(false);
-      setActiveFilter(null);
-      setSelectedFilterValue('');
+      setMainFilter(null);
+      setSelectedSubFilters({ nroMovil: [], empresa: [], numeroChapa: [] });
+      setOpenDropdown(null);
       setError(null);
       setTotalizadorInicial('');
       setTotalizadorFinal('');
@@ -289,7 +322,6 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
         if (docSnap.exists()) {
           const docData = docSnap.data();
 
-          // Extract totalizadores for single date mode - they are nested in docData
           if (selectionMode === 'single' && datesToFetch.length === 1) {
             setTotalizadorInicial(docData.docData?.Tinicial || '');
             setTotalizadorFinal(docData.docData?.Tfinal || '');
@@ -359,32 +391,56 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
   }, [fetchedEntries]);
 
   const filteredEntries = useMemo(() => {
-    if (!activeFilter || !selectedFilterValue) {
-      return fetchedEntries;
+    let entries = fetchedEntries;
+
+    if (mainFilter === 'internal') {
+      entries = entries.filter(entry => entry.type === 'flota');
+    } else if (mainFilter === 'external') {
+      entries = entries.filter(entry => entry.type === 'externa');
     }
 
-    return fetchedEntries.filter(entry => {
-      switch (activeFilter) {
-        case 'nroMovil':
-          return entry.type === 'flota' && (entry as CargaFlota).NroMovil === selectedFilterValue;
-        case 'empresa':
-          return entry.type === 'externa' && (entry as CargaExterna).Empresa === selectedFilterValue;
-        case 'numeroChapa':
-          return entry.type === 'externa' && (entry as CargaExterna).NumeroChapa === selectedFilterValue;
-        default:
-          return true;
+    if (mainFilter === 'internal' && selectedSubFilters.nroMovil.length > 0) {
+      entries = entries.filter(entry =>
+        entry.type === 'flota' && selectedSubFilters.nroMovil.includes((entry as CargaFlota).NroMovil)
+      );
+    }
+
+    if (mainFilter === 'external') {
+      if (selectedSubFilters.empresa.length > 0) {
+        entries = entries.filter(entry =>
+          entry.type === 'externa' && selectedSubFilters.empresa.includes((entry as CargaExterna).Empresa)
+        );
+      }
+      if (selectedSubFilters.numeroChapa.length > 0) {
+        entries = entries.filter(entry =>
+          entry.type === 'externa' && selectedSubFilters.numeroChapa.includes((entry as CargaExterna).NumeroChapa)
+        );
+      }
+    }
+
+    return entries;
+  }, [fetchedEntries, mainFilter, selectedSubFilters]);
+
+  const handleMainFilterChange = (filterType: MainFilterType) => {
+    if (mainFilter === filterType) {
+      setMainFilter(null);
+      setSelectedSubFilters({ nroMovil: [], empresa: [], numeroChapa: [] });
+    } else {
+      setMainFilter(filterType);
+      setSelectedSubFilters({ nroMovil: [], empresa: [], numeroChapa: [] });
+    }
+    setOpenDropdown(null);
+  };
+
+  const handleSubFilterToggle = (filterType: 'nroMovil' | 'empresa' | 'numeroChapa', value: string) => {
+    setSelectedSubFilters(prev => {
+      const current = prev[filterType];
+      if (current.includes(value)) {
+        return { ...prev, [filterType]: current.filter(v => v !== value) };
+      } else {
+        return { ...prev, [filterType]: [...current, value] };
       }
     });
-  }, [fetchedEntries, activeFilter, selectedFilterValue]);
-
-  const handleFilterChange = (filterType: FilterType) => {
-    if (activeFilter === filterType) {
-      setActiveFilter(null);
-      setSelectedFilterValue('');
-    } else {
-      setActiveFilter(filterType);
-      setSelectedFilterValue('');
-    }
   };
 
   const handleGeneratePdf = async () => {
@@ -399,29 +455,43 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
       const startDate = dateRange[0];
       const endDate = dateRange[dateRange.length - 1];
 
-      // Use different generator based on selection mode
+      let filterInfo: any = undefined;
+      if (mainFilter) {
+        const activeSubFilters: string[] = [];
+        if (mainFilter === 'internal' && selectedSubFilters.nroMovil.length > 0) {
+          activeSubFilters.push(...selectedSubFilters.nroMovil);
+        }
+        if (mainFilter === 'external') {
+          if (selectedSubFilters.empresa.length > 0) {
+            activeSubFilters.push(...selectedSubFilters.empresa);
+          }
+          if (selectedSubFilters.numeroChapa.length > 0) {
+            activeSubFilters.push(...selectedSubFilters.numeroChapa);
+          }
+        }
+
+        if (activeSubFilters.length > 0) {
+          filterInfo = {
+            type: mainFilter === 'internal' ? 'nroMovil' : 'empresa',
+            values: activeSubFilters
+          };
+        }
+      }
+
       if (selectionMode === 'single') {
-        // For single date, use the "unico" generator with totalizadores
         await generateSCOM01CompuestoUnicoPdf(
           filteredEntries,
           startDate,
-          activeFilter && selectedFilterValue ? {
-            type: activeFilter,
-            values: [selectedFilterValue]
-          } : undefined,
+          filterInfo,
           totalizadorInicial,
           totalizadorFinal
         );
       } else {
-        // For date range, use the regular compuesto generator
         await generateSCOM01CompuestoPdf(
           filteredEntries,
           startDate,
           endDate,
-          activeFilter && selectedFilterValue ? {
-            type: activeFilter,
-            values: [selectedFilterValue]
-          } : undefined
+          filterInfo
         );
       }
     } catch (err) {
@@ -444,78 +514,56 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
       const startDate = dateRange[0];
       const endDate = dateRange[dateRange.length - 1];
 
-      // Format dates for display
       const formatDateForDisplay = (dateStr: string) => {
         const [day, month, year] = dateStr.split('-');
         return `${day}/${month}/${year}`;
       };
 
-      // Prepare data for Excel with column titles
-      const excelData = filteredEntries.map(entry => {
-        const isFlota = entry.type === 'flota';
-        return {
-          'FECHA': formatDateForDisplay(entry.sourceDate),
-          'TIPO': isFlota ? 'INTERNO' : 'EXTERNO',
-          'EMPRESA / NRO. MÓVIL': isFlota ? (entry as CargaFlota).NroMovil : (entry as CargaExterna).Empresa,
-          'NRO. CHAPA': isFlota ? '-' : ((entry as CargaExterna).NumeroChapa || '-'),
-          'CHOFER': isFlota ? (entry as CargaFlota).Chofer : (entry as CargaExterna).NombreChofer,
-          'LITROS CARGADOS': parseFloat(isFlota ? (entry as CargaFlota).Litros : (entry as CargaExterna).LitrosCargados).toFixed(2),
-          'HORA': isFlota ? (entry as CargaFlota).HoraCarga : (entry as CargaExterna).Hora,
-          'KILOMETRAJE': entry.Kilometraje || '-',
-          'HORÓMETRO': entry.Horometro || '-',
-          'PRECINTO': entry.Precinto || '-',
-          'FIRMA': entry.HasFirma ? 'SÍ' : 'NO'
-        };
+      const excelData = filteredEntries.map((entry, index) => {
+        if (entry.type === 'flota') {
+          return {
+            'N°': index + 1,
+            'Tipo': 'Interno',
+            'Fecha': formatDateForDisplay(entry.sourceDate),
+            'Nro Móvil': entry.NroMovil,
+            'Chofer': entry.Chofer,
+            'Litros': entry.Litros,
+            'Hora': entry.HoraCarga,
+            'Kilometraje': entry.Kilometraje || '-',
+            'Horometro': entry.Horometro || '-',
+            'Precinto': entry.Precinto || '-',
+            'Firma': entry.HasFirma ? 'Sí' : 'No'
+          };
+        } else {
+          return {
+            'N°': index + 1,
+            'Tipo': 'Externo',
+            'Fecha': formatDateForDisplay(entry.sourceDate),
+            'Empresa': entry.Empresa,
+            'Nro Chapa': entry.NumeroChapa,
+            'Chofer': entry.NombreChofer,
+            'Litros': entry.LitrosCargados,
+            'Hora': entry.Hora,
+            'Kilometraje': entry.Kilometraje || '-',
+            'Horometro': entry.Horometro || '-',
+            'Precinto': entry.Precinto || '-',
+            'Firma': entry.HasFirma ? 'Sí' : 'No'
+          };
+        }
       });
 
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Registros');
 
-      // Create main worksheet
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const fileName = selectionMode === 'single'
+        ? `SCOM01_${startDate}.xlsx`
+        : `SCOM01_${startDate}_a_${endDate}.xlsx`;
 
-      // Set column widths for main sheet
-      const columnWidths = [
-        { wch: 12 },  // FECHA
-        { wch: 12 },  // TIPO
-        { wch: 20 },  // EMPRESA / NRO. MÓVIL
-        { wch: 12 },  // NRO. CHAPA
-        { wch: 25 },  // CHOFER
-        { wch: 16 },  // LITROS CARGADOS
-        { wch: 10 },  // HORA
-        { wch: 14 },  // KILOMETRAJE
-        { wch: 14 },  // HORÓMETRO
-        { wch: 12 },  // PRECINTO
-        { wch: 10 }   // FIRMA
-      ];
-      worksheet['!cols'] = columnWidths;
-
-      // Add main worksheet to workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Despacho Combustible');
-
-      // Generate filename based on selection mode
-      let filename: string;
-      if (selectionMode === 'single' && selectedDate) {
-        const displayDate = formatDateForDisplay(selectedDate);
-        filename = `Despacho_SCOM01_${displayDate.replace(/\//g, '-')}.xlsx`;
-      } else {
-        const startDisplay = formatDateForDisplay(startDate);
-        const endDisplay = formatDateForDisplay(endDate);
-        filename = `Despacho_SCOM01_${startDisplay.replace(/\//g, '-')}_a_${endDisplay.replace(/\//g, '-')}.xlsx`;
-      }
-
-      // Add filter information if applicable
-      if (activeFilter && selectedFilterValue) {
-        filename = filename.replace('.xlsx', `_${selectedFilterValue}.xlsx`);
-      }
-
-      // Save file
-      XLSX.writeFile(workbook, filename);
-
-      console.log('[SCOM01-Compuesto] Excel generated successfully');
+      XLSX.writeFile(wb, fileName);
     } catch (err) {
       console.error('[SCOM01-Compuesto] Error generating Excel:', err);
-      setError('Error al generar el archivo Excel');
+      setError('Error al generar el Excel');
     } finally {
       setIsGeneratingExcel(false);
     }
@@ -523,162 +571,151 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
 
   if (!isOpen) return null;
 
-  const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-  ];
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Documento Compuesto - Selección de Datos
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900">Documento Compuesto - SCOM01</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X size={24} className="text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {!dataFetched && (
+        <div className="flex-1 overflow-y-auto p-6">
+          {!dataFetched ? (
             <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Modo de Selección
-                </label>
-                <div className="flex gap-4">
+              <div className="mb-6">
+                <div className="flex gap-2 mb-4">
                   <button
-                    onClick={() => {
-                      setSelectionMode('single');
-                      setRangeStart(null);
-                      setRangeEnd(null);
-                    }}
-                    className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${selectionMode === 'single'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400'
+                    onClick={() => setSelectionMode('single')}
+                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${selectionMode === 'single'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                   >
-                    <div className="font-medium">Fecha Única</div>
-                    <div className="text-xs text-gray-500 mt-1">Seleccionar un día específico</div>
+                    Fecha Única
                   </button>
                   <button
-                    onClick={() => {
-                      setSelectionMode('range');
-                      setSelectedDate(null);
-                    }}
-                    className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${selectionMode === 'range'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400'
+                    onClick={() => setSelectionMode('range')}
+                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${selectionMode === 'range'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                   >
-                    <div className="font-medium">Rango de Fechas</div>
-                    <div className="text-xs text-gray-500 mt-1">Hasta 31 días</div>
-                  </button>
-                </div>
-              </div>
-
-              <div className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <button
-                    onClick={() => navigateMonth(-1)}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <h3 className="text-lg font-semibold">
-                    {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                  </h3>
-                  <button
-                    onClick={() => navigateMonth(1)}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
-                  >
-                    <ChevronRight size={20} />
+                    Rango de Fechas
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 mb-2">
-                  {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
-                    <div key={day} className="text-center text-xs font-medium text-gray-500 p-2">
-                      {day}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-blue-900">
+                    {selectionMode === 'single'
+                      ? 'Seleccione una fecha con datos disponibles'
+                      : 'Seleccione dos fechas para definir el rango (máximo 31 días)'}
+                  </p>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <button
+                      onClick={() => navigateMonth(-1)}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <div className="text-lg font-semibold text-gray-900">
+                      {currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                     </div>
-                  ))}
+                    <button
+                      onClick={() => navigateMonth(1)}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-2">
+                    {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
+                      <div key={day} className="text-center text-xs font-medium text-gray-600 py-2">
+                        {day}
+                      </div>
+                    ))}
+                    {calendarDays.map((day, index) => {
+                      const isSelected = isDateInRange(day.dateStr);
+                      const isRangeStart = rangeStart === day.dateStr;
+                      const isRangeEnd = rangeEnd === day.dateStr;
+
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleDateClick(day.dateStr, day.isAvailable)}
+                          disabled={!day.isAvailable || loadingDates}
+                          className={` p-4 rounded-lg text-sm font-medium transition-all
+          ${!day.isCurrentMonth ? 'text-gray-300' : ''}
+          ${day.isAvailable
+                              ? 'cursor-pointer hover:bg-blue-50'
+                              : 'cursor-not-allowed opacity-40'
+                            }
+          ${isSelected && !isRangeStart && !isRangeEnd
+                              ? 'bg-blue-100 text-blue-900'
+                              : ''
+                            }
+          ${(isRangeStart || isRangeEnd)
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : ''
+                            }
+        `}
+                        >
+                          {day.date.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2">
-                  {calendarDays.map((day, idx) => {
-                    const isSelected = isDateInRange(day.dateStr);
-                    const isDisabled = !day.isAvailable || !day.isCurrentMonth;
-
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleDateClick(day.dateStr, day.isAvailable)}
-                        disabled={isDisabled || loadingDates}
-                        className={`p-2 text-sm rounded transition-colors min-h-[36px] flex items-center justify-center border ${!day.isCurrentMonth
-                          ? 'text-gray-300 border-transparent'
-                          : isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : day.isAvailable
-                              ? 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
-                              : 'bg-gray-100 text-gray-400 cursor-not-allowed border-transparent'
-                          }`}
-                        style={{ fontWeight: isSelected ? 600 : 400 }}
-                      >
-                        {day.date.getDate()}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex gap-4 mt-4 text-xs text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border border-gray-300 bg-white rounded"></div>
-                    <span>Disponible</span>
+                {(selectedDate || (rangeStart && rangeEnd)) && (
+                  <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-green-900">
+                      <CheckCircle size={20} />
+                      <span className="font-medium">
+                        {selectionMode === 'single'
+                          ? `Fecha seleccionada: ${selectedDate}`
+                          : `Rango: ${rangeStart} a ${rangeEnd}`
+                        }
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-gray-300 rounded"></div>
-                    <span>No disponible</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-blue-600 rounded"></div>
-                    <span>Seleccionado</span>
-                  </div>
-                </div>
+                )}
               </div>
+
               <button
                 onClick={fetchData}
-                disabled={isFetchingData || (!selectedDate && (!rangeStart || !rangeEnd))}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                disabled={
+                  isFetchingData ||
+                  (selectionMode === 'single' ? !selectedDate : (!rangeStart || !rangeEnd))
+                }
+                className="w-full py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isFetchingData ? (
                   <>
-                    <RefreshCw className="animate-spin" size={20} />
-                    Cargando datos...
+                    <RefreshCw size={20} className="animate-spin" />
+                    <span>Cargando datos...</span>
                   </>
                 ) : (
                   <>
                     <Search size={20} />
-                    Buscar Datos
+                    <span>Cargar Datos</span>
                   </>
                 )}
               </button>
             </>
-          )}
-
-          {dataFetched && (
+          ) : (
             <>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="text-green-600" size={20} />
-                  <span className="font-medium text-green-900">Datos cargados exitosamente</span>
-                </div>
-              </div>
-
-              {/* Totalizadores Section - Only for Single Date Mode */}
-              {selectionMode === 'single' && (totalizadorInicial || totalizadorFinal) && (
-                <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-3">Totalizadores</h3>
+              {selectionMode === 'single' && totalizadorInicial && totalizadorFinal && (
+                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-blue-900 mb-3">Totalizadores</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-xs text-blue-700 mb-1">Inicial</div>
@@ -696,118 +733,170 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
                 </div>
               )}
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Filtros Opcionales</h3>
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Filtros</h3>
 
                 <div className="space-y-4">
-                  {/* Internal Fleet Filter */}
-                  {filterOptions.nroMoviles.length > 0 && (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="checkbox"
-                          checked={activeFilter === 'nroMovil'}
-                          onChange={() => handleFilterChange('nroMovil')}
-                          className="w-5 h-5 text-blue-600 cursor-pointer"
-                          style={{ transform: 'scale(1.3)' }}
-                        />
-                        <label className="font-medium text-gray-900 flex-1">
-                          Vehículos Internos - Nro. Móvil
-                        </label>
+                  {/* Internal Fleet Toggle */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="checkbox"
+                        checked={mainFilter === 'internal'}
+                        onChange={() => handleMainFilterChange('internal')}
+                        className="w-5 h-5 text-blue-600 cursor-pointer"
+                        style={{ transform: 'scale(1.3)' }}
+                      />
+                      <label className="font-medium text-gray-900 flex-1">
+                        Vehículos Internos
+                      </label>
+                    </div>
 
-                        <select
-                          value={selectedFilterValue}
-                          onChange={(e) => setSelectedFilterValue(e.target.value)}
-                          disabled={activeFilter !== 'nroMovil'}
-                          className={`px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] transition-colors ${activeFilter === 'nroMovil'
-                            ? 'bg-gray-50 cursor-pointer'
-                            : 'bg-gray-200 cursor-not-allowed opacity-60'
+                    {/* Internal Sub-filter Dropdown */}
+                    {filterOptions.nroMoviles.length > 0 && (
+                      <div className="mt-3 relative" ref={dropdownRefs.nroMovil}>
+                        <button
+                          onClick={() => setOpenDropdown(openDropdown === 'nroMovil' ? null : 'nroMovil')}
+                          disabled={mainFilter !== 'internal'}
+                          className={`w-full px-4 py-2 border rounded-md text-left flex items-center justify-between ${mainFilter === 'internal'
+                              ? 'bg-white border-gray-300 hover:bg-gray-50 cursor-pointer'
+                              : 'bg-gray-200 border-gray-200 cursor-not-allowed opacity-60'
                             }`}
                         >
-                          <option value="">Seleccionar móvil...</option>
-                          {filterOptions.nroMoviles.map(movil => (
-                            <option key={movil} value={movil}>{movil}</option>
-                          ))}
-                        </select>
+                          <span className="text-sm">
+                            {selectedSubFilters.nroMovil.length > 0
+                              ? `${selectedSubFilters.nroMovil.length} móvil(es) seleccionado(s)`
+                              : 'Nro. Móvil...'}
+                          </span>
+                          <ChevronDown size={16} />
+                        </button>
+
+                        {openDropdown === 'nroMovil' && mainFilter === 'internal' && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                            {filterOptions.nroMoviles.map(movil => (
+                              <label
+                                key={movil}
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedSubFilters.nroMovil.includes(movil)}
+                                  onChange={() => handleSubFilterToggle('nroMovil', movil)}
+                                  className="w-4 h-4 text-blue-600"
+                                />
+                                <span className="text-sm">{movil}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
+                    )}
+                  </div>
+
+                  {/* External Fleet Toggle */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="checkbox"
+                        checked={mainFilter === 'external'}
+                        onChange={() => handleMainFilterChange('external')}
+                        className="w-5 h-5 text-blue-600 cursor-pointer"
+                        style={{ transform: 'scale(1.3)' }}
+                      />
+                      <label className="font-medium text-gray-900 flex-1">
+                        Vehículos Externos
+                      </label>
                     </div>
-                  )}
 
-                  {/* External Fleet - Empresa Filter */}
-                  {filterOptions.empresas.length > 0 && (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="checkbox"
-                          checked={activeFilter === 'empresa'}
-                          onChange={() => handleFilterChange('empresa')}
-                          className="w-5 h-5 text-blue-600 cursor-pointer"
-                          style={{ transform: 'scale(1.3)' }}
-                        />
-                        <label className="font-medium text-gray-900 flex-1">
-                          Vehículos Externos - Empresa
-                        </label>
+                    {/* External Sub-filter Dropdowns */}
+                    <div className="mt-3 space-y-2">
+                      {filterOptions.empresas.length > 0 && (
+                        <div className="relative" ref={dropdownRefs.empresa}>
+                          <button
+                            onClick={() => setOpenDropdown(openDropdown === 'empresa' ? null : 'empresa')}
+                            disabled={mainFilter !== 'external'}
+                            className={`w-full px-4 py-2 border rounded-md text-left flex items-center justify-between ${mainFilter === 'external'
+                                ? 'bg-white border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                : 'bg-gray-200 border-gray-200 cursor-not-allowed opacity-60'
+                              }`}
+                          >
+                            <span className="text-sm">
+                              {selectedSubFilters.empresa.length > 0
+                                ? `${selectedSubFilters.empresa.length} empresa(s) seleccionada(s)`
+                                : 'Empresa...'}
+                            </span>
+                            <ChevronDown size={16} />
+                          </button>
 
-                        <select
-                          value={selectedFilterValue}
-                          onChange={(e) => setSelectedFilterValue(e.target.value)}
-                          disabled={activeFilter !== 'empresa'}
-                          className={`px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] transition-colors ${activeFilter === 'empresa'
-                            ? 'bg-gray-50 cursor-pointer'
-                            : 'bg-gray-200 cursor-not-allowed opacity-60'
-                            }`}
-                        >
-                          <option value="">Seleccionar empresa...</option>
-                          {filterOptions.empresas.map(empresa => (
-                            <option key={empresa} value={empresa}>{empresa}</option>
-                          ))}
-                        </select>
-                      </div>
+                          {openDropdown === 'empresa' && mainFilter === 'external' && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                              {filterOptions.empresas.map(empresa => (
+                                <label
+                                  key={empresa}
+                                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedSubFilters.empresa.includes(empresa)}
+                                    onChange={() => handleSubFilterToggle('empresa', empresa)}
+                                    className="w-4 h-4 text-blue-600"
+                                  />
+                                  <span className="text-sm">{empresa}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {filterOptions.numeroChapas.length > 0 && (
+                        <div className="relative" ref={dropdownRefs.numeroChapa}>
+                          <button
+                            onClick={() => setOpenDropdown(openDropdown === 'numeroChapa' ? null : 'numeroChapa')}
+                            disabled={mainFilter !== 'external'}
+                            className={`w-full px-4 py-2 border rounded-md text-left flex items-center justify-between ${mainFilter === 'external'
+                                ? 'bg-white border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                : 'bg-gray-200 border-gray-200 cursor-not-allowed opacity-60'
+                              }`}
+                          >
+                            <span className="text-sm">
+                              {selectedSubFilters.numeroChapa.length > 0
+                                ? `${selectedSubFilters.numeroChapa.length} chapa(s) seleccionada(s)`
+                                : 'Nro. Chapa...'}
+                            </span>
+                            <ChevronDown size={16} />
+                          </button>
+
+                          {openDropdown === 'numeroChapa' && mainFilter === 'external' && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                              {filterOptions.numeroChapas.map(chapa => (
+                                <label
+                                  key={chapa}
+                                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedSubFilters.numeroChapa.includes(chapa)}
+                                    onChange={() => handleSubFilterToggle('numeroChapa', chapa)}
+                                    className="w-4 h-4 text-blue-600"
+                                  />
+                                  <span className="text-sm">{chapa}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {/* External Fleet - NumeroChapa Filter */}
-                  {filterOptions.numeroChapas.length > 0 && (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="checkbox"
-                          checked={activeFilter === 'numeroChapa'}
-                          onChange={() => handleFilterChange('numeroChapa')}
-                          className="w-5 h-5 text-blue-600 cursor-pointer"
-                          style={{ transform: 'scale(1.3)' }}
-                        />
-                        <label className="font-medium text-gray-900 flex-1">
-                          Vehículos Externos - Nro. Chapa
-                        </label>
-
-                        <select
-                          value={selectedFilterValue}
-                          onChange={(e) => setSelectedFilterValue(e.target.value)}
-                          disabled={activeFilter !== 'numeroChapa'}
-                          className={`px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] transition-colors ${activeFilter === 'numeroChapa'
-                            ? 'bg-gray-50 cursor-pointer'
-                            : 'bg-gray-200 cursor-not-allowed opacity-60'
-                            }`}
-                        >
-                          <option value="">Seleccionar chapa...</option>
-                          {filterOptions.numeroChapas.map(chapa => (
-                            <option key={chapa} value={chapa}>{chapa}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
-              {/* Download Buttons Section - Replaced single button with two buttons */}
               <div className="space-y-3">
                 <div className="text-sm text-gray-600 mb-2">
                   {filteredEntries.length} {filteredEntries.length === 1 ? 'registro encontrado' : 'registros encontrados'}
                 </div>
 
-                {/* PDF Download Button (Red) */}
                 <button
                   onClick={handleGeneratePdf}
                   disabled={isGeneratingPdf || isGeneratingExcel || filteredEntries.length === 0}
@@ -828,7 +917,6 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
                   </div>
                 </button>
 
-                {/* Excel Download Button (Green) */}
                 <button
                   onClick={handleGenerateExcel}
                   disabled={isGeneratingPdf || isGeneratingExcel || filteredEntries.length === 0}
@@ -849,13 +937,13 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
                   </div>
                 </button>
 
-                {/* Nueva Búsqueda Button */}
                 <button
                   onClick={() => {
                     setDataFetched(false);
                     setFetchedEntries([]);
-                    setActiveFilter(null);
-                    setSelectedFilterValue('');
+                    setMainFilter(null);
+                    setSelectedSubFilters({ nroMovil: [], empresa: [], numeroChapa: [] });
+                    setOpenDropdown(null);
                   }}
                   className="w-full px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
@@ -866,7 +954,7 @@ export default function SCOM01Compuesto({ isOpen, onClose }: SCOM01CompuestoProp
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-2">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-2 mt-4">
               <AlertCircle className="text-red-600 mt-0.5" size={20} />
               <div className="flex-1">
                 <div className="font-medium text-red-900">{error}</div>

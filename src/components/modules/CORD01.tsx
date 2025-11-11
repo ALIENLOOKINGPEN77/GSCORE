@@ -444,6 +444,7 @@ export default function CORD01() {
           stateSig: false,
           stateUsed: false,
           stateAudit: false,
+          stateUsedAudit: false,
           componentsUsed: {},
         };
       } else {
@@ -465,6 +466,7 @@ export default function CORD01() {
           stateSig: false,
           stateUsed: false,
           stateAudit: false,
+          stateUsedAudit: false,
         };
       }
 

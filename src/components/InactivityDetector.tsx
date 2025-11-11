@@ -67,7 +67,7 @@ export function InactivityDetector() {
 
       {/* 2. Toast Notification (Right-aligned) */}
       <div
-        className="fixed top-4 right-4 bg-red-600 text-white px-6 py-4 rounded-lg shadow-2xl z-[9999] max-w-sm animate-slide-in"
+        className="fixed top-4 right-4 bg-orange-400 text-white px-6 py-4 rounded-lg shadow-2xl z-[9999] max-w-sm animate-slide-in"
         role="alert"
       >
         <div className="flex items-center gap-3">

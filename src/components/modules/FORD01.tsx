@@ -79,6 +79,14 @@ const WorkOrdersTable = ({
 }) => {
   const formatDate = (date: any) => {
     if (!date) return '-';
+    
+    // If date is already a string in format "YYYY-MM-DD", parse and format it
+    if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = date.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Fallback for other date formats
     const dateObj = date.toDate ? date.toDate() : new Date(date);
     return dateObj.toLocaleDateString('es-ES', { 
       day: '2-digit', 
@@ -337,14 +345,14 @@ export default function FORD01() {
           <ClipboardCheck className="text-blue-600" size={32} />
           <h1 className="text-3xl font-bold text-gray-900">FORD01</h1>
         </div>
-        <p className="text-gray-600">Finalización de Órdenes de Trabajo</p>
+
       </div>
 
       {/* General Orders Section */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Wrench className="text-gray-700" size={24} />
-          <h2 className="text-xl font-semibold text-gray-800">Órdenes Generales</h2>
+          <h2 className="text-xl font-semibold text-gray-800">órdenes Generales</h2>
         </div>
         <WorkOrdersTable 
           orders={generalOrders} 
@@ -357,7 +365,7 @@ export default function FORD01() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-2 mb-4">
           <Wrench className="text-gray-700" size={24} />
-          <h2 className="text-xl font-semibold text-gray-800">Órdenes de Taller</h2>
+          <h2 className="text-xl font-semibold text-gray-800">órdenes de Taller</h2>
         </div>
         <WorkOrdersTable 
           orders={tallerOrders} 

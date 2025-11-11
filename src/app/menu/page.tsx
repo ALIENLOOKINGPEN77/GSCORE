@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Search, XCircle, ChevronRight, ChevronDown } from "lucide-react";
 import Protected from "../../components/protected";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../lib/firebase/client";
 import { fetchAvailableModules } from "../../lib/firebase/modules";
 import { doc, getDoc } from "firebase/firestore";
@@ -141,8 +141,9 @@ export default function MenuPage() {
   const [expandedSuits, setExpandedSuits] = useState<Set<string>>(new Set());
   const [userModuleAccess, setUserModuleAccess] = useState<string[]>([]);
   const [isLoadingSuits, setIsLoadingSuits] = useState(true);
-
-
+  
+  // NEW: Track if auth is ready
+  const [authReady, setAuthReady] = useState(false);
 
   // Set random background image on mount
   useEffect(() => {
@@ -173,6 +174,21 @@ export default function MenuPage() {
   useEffect(() => {
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
+
+  // NEW: Wait for auth to be ready
+  useEffect(() => {
+    console.log("[Menu] Setting up auth state listener");
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("[Menu] Auth state changed:", user ? user.email : "No user");
+      setAuthReady(true);
+    });
+
+    return () => {
+      console.log("[Menu] Cleaning up auth state listener");
+      unsubscribe();
     };
   }, []);
 
@@ -223,12 +239,17 @@ export default function MenuPage() {
     };
   }, []);
 
-  // Load user's module access
+  // FIXED: Load user's module access - now waits for auth to be ready
   useEffect(() => {
+    // Don't run until auth is ready
+    if (!authReady) {
+      console.log("[Menu] Waiting for auth to be ready...");
+      return;
+    }
+
     let mounted = true;
 
-    // Use a slight delay to ensure auth is ready
-    const timeoutId = setTimeout(async () => {
+    (async () => {
       try {
         const currentUser = auth.currentUser;
         console.log("[Menu] Loading user module access, current user:", currentUser?.email);
@@ -272,19 +293,22 @@ export default function MenuPage() {
           }
           setIsLoadingSuits(false);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("[Menu] Failed to load user module access:", err);
+        console.error("[Menu] Error details:", {
+          code: err.code,
+          message: err.message
+        });
         if (mounted) {
           setIsLoadingSuits(false);
         }
       }
-    }, 500); // Small delay to ensure auth is ready
+    })();
 
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [authReady]); // NOW depends on authReady instead of empty array
 
   // Dynamic module loader with better error handling
   const loadModule = useCallback(async (code: string): Promise<React.ComponentType<any> | null> => {

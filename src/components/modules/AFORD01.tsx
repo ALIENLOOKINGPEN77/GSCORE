@@ -158,10 +158,11 @@ export default function AFORD01() {
     
     // Query for orders where state=true and stateAudit=false (completed but pending audit)
     const ordersQuery = query(
-      ordersRef,
-      where("state", "==", true),
-      where("stateAudit", "==", false),
-      orderBy("createdAt", "desc")
+    ordersRef,
+    where("state", "==", true),
+    where("stateSig", "==", true),
+    where("stateAudit", "==", false),
+    orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
@@ -286,7 +287,6 @@ export default function AFORD01() {
           <FileCheck className="text-blue-600" size={32} />
           <h1 className="text-3xl font-bold text-gray-900">AFORD01</h1>
         </div>
-        <p className="text-gray-600">Administración de Órdenes de Trabajo</p>
       </div>
 
       {/* Action Buttons */}

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { X, Save, Search, Trash2, AlertCircle, Package } from "lucide-react";
-import { doc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { X, Save, Search, Trash2, AlertCircle, Package, CheckCircle } from "lucide-react";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase/client";
+import Searcher, { Material } from "../../searcher";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -28,18 +29,46 @@ type WorkOrder = {
   [key: string]: any;
 };
 
-type MaterialResult = {
-  documentId: string;
-  codigo: string;
-  descripcion: string;
-};
-
 type MaterialUsed = {
   materialCode: string;
   codigo: string;
   descripcion: string;
   quantity: number;
 };
+
+// ============================================================================
+// TOAST COMPONENT
+// ============================================================================
+
+const Toast = ({ 
+  message, 
+  type, 
+  onClose 
+}: { 
+  message: string; 
+  type: 'success' | 'error'; 
+  onClose: () => void;
+}) => (
+  <div className="fixed top-4 right-4 z-[9999] animate-slide-in">
+    <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
+      type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+    }`}>
+      {type === 'success' ? (
+        <CheckCircle className="text-green-600" size={20} />
+      ) : (
+        <AlertCircle className="text-red-600" size={20} />
+      )}
+      <span className={`font-medium ${
+        type === 'success' ? 'text-green-800' : 'text-red-800'
+      }`}>
+        {message}
+      </span>
+      <button onClick={onClose} className="ml-2 hover:bg-gray-200 rounded p-1 transition-colors">
+        <X size={16} />
+      </button>
+    </div>
+  </div>
+);
 
 // ============================================================================
 // FORM FIELD COMPONENTS
@@ -83,102 +112,6 @@ const FormField = ({
 );
 
 // ============================================================================
-// MATERIAL SEARCH COMPONENT
-// ============================================================================
-
-const MaterialSearch = ({ 
-  onSelectMaterial 
-}: { 
-  onSelectMaterial: (material: MaterialResult) => void 
-}) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<MaterialResult[]>([]);
-  const [allMaterials, setAllMaterials] = useState<MaterialResult[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const loadMaterials = async () => {
-      setLoading(true);
-      try {
-        const materialsSnapshot = await getDocs(collection(db, "CMAT01"));
-        const materials: MaterialResult[] = [];
-        materialsSnapshot.forEach((doc) => {
-          const data = doc.data();
-          materials.push({
-            documentId: data.documentId,
-            codigo: data.codigo,
-            descripcion: data.descripcion
-          });
-        });
-        setAllMaterials(materials);
-      } catch (error) {
-        console.error("Error loading materials:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadMaterials();
-  }, []);
-
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const term = searchTerm.toLowerCase();
-    const filtered = allMaterials.filter(material =>
-      (material.codigo && material.codigo.toLowerCase().includes(term)) ||
-      (material.descripcion && material.descripcion.toLowerCase().includes(term)) ||
-      (material.documentId && material.documentId.toLowerCase().includes(term))
-    );
-    setSearchResults(filtered.slice(0, 10));
-  }, [searchTerm, allMaterials]);
-
-  return (
-    <div className="space-y-2">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar material por código o descripción..."
-          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {loading && (
-        <div className="text-sm text-gray-500 py-2">Cargando materiales...</div>
-      )}
-
-      {searchResults.length > 0 && (
-        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-          {searchResults.map((material) => (
-            <button
-              key={material.documentId}
-              onClick={() => {
-                onSelectMaterial(material);
-                setSearchTerm('');
-                setSearchResults([]);
-              }}
-              className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-            >
-              <div className="font-medium text-sm text-gray-900">{material.codigo}</div>
-              <div className="text-xs text-gray-600">{material.descripcion}</div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {searchTerm && searchResults.length === 0 && !loading && (
-        <div className="text-sm text-gray-500 py-2">No se encontraron materiales</div>
-      )}
-    </div>
-  );
-};
-
-// ============================================================================
 // MAIN MODAL COMPONENT
 // ============================================================================
 
@@ -197,6 +130,9 @@ export default function TallerModal({
   const [materialsUsed, setMaterialsUsed] = useState<MaterialUsed[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [saving, setSaving] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [searcherOpen, setSearcherOpen] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Initialize materials from order
   useEffect(() => {
@@ -212,26 +148,29 @@ export default function TallerModal({
       });
       setMaterialsUsed(materials);
     }
+    setLoadingData(false);
   }, [order]);
 
-  const handleAddMaterial = useCallback((material: MaterialResult) => {
-    setMaterialsUsed(prev => {
-      const exists = prev.find(m => m.materialCode === material.documentId);
-      if (exists) {
-        return prev.map(m => 
-          m.materialCode === material.documentId 
-            ? { ...m, quantity: m.quantity + 1 } 
-            : m
-        );
-      }
-      return [...prev, {
-        materialCode: material.documentId,
-        codigo: material.codigo,
-        descripcion: material.descripcion,
-        quantity: 1
-      }];
-    });
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
   }, []);
+
+  const handleAddMaterial = useCallback((material: Material) => {
+    const exists = materialsUsed.find(m => m.materialCode === material.id);
+    
+    if (exists) {
+      showToast('error', 'Este material ya ha sido agregado');
+      return;
+    }
+    
+    setMaterialsUsed(prev => [...prev, {
+      materialCode: material.id,
+      codigo: material.codigo,
+      descripcion: material.descripcion,
+      quantity: 1
+    }]);
+  }, [materialsUsed, showToast]);
 
   const handleUpdateQuantity = useCallback((materialCode: string, quantity: number) => {
     if (quantity <= 0) {
@@ -266,7 +205,6 @@ export default function TallerModal({
 
     setSaving(true);
     try {
-      // Convert materials to componentsUsed map
       const componentsUsed: { [key: string]: number } = {};
       materialsUsed.forEach(material => {
         componentsUsed[material.materialCode] = material.quantity;
@@ -291,6 +229,20 @@ export default function TallerModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
+
+      <Searcher
+        isOpen={searcherOpen}
+        onClose={() => setSearcherOpen(false)}
+        onSelect={handleAddMaterial}
+      />
+
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -306,109 +258,127 @@ export default function TallerModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Order Information */}
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-            <h3 className="font-semibold text-gray-900 mb-3">Información de la Orden</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Tipo Vehículo:</span>
-                <span className="ml-2 font-medium capitalize">{order.vehicleType}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Unidad Móvil:</span>
-                <span className="ml-2 font-medium">{order.mobileUnit}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Conductor:</span>
-                <span className="ml-2 font-medium">{order.driver}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Kilometraje:</span>
-                <span className="ml-2 font-medium">{order.mileage} km</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Horómetro:</span>
-                <span className="ml-2 font-medium">{order.hourmeter} hrs</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Fecha Ejecución:</span>
-                <span className="ml-2 font-medium">{order.executionDate}</span>
-              </div>
-              <div className="col-span-2">
-                <span className="text-gray-600">Descripción:</span>
-                <p className="mt-1 text-gray-900">{order.description}</p>
-              </div>
-              {order.observations && (
-                <div className="col-span-2">
-                  <span className="text-gray-600">Observaciones:</span>
-                  <p className="mt-1 text-gray-900">{order.observations}</p>
-                </div>
-              )}
+        {/* Loading State */}
+        {loadingData ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Cargando datos...</p>
             </div>
           </div>
-
-          {/* Verified By */}
-          <FormField
-            label="Verificado Por"
-            value={verifiedBy}
-            onChange={(e) => setVerifiedBy(e.target.value)}
-            error={errors.verifiedBy}
-            placeholder="Nombre del verificador"
-          />
-
-          {/* Materials Used Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Package className="text-blue-600" size={20} />
-              <h3 className="font-semibold text-gray-900">Materiales Utilizados</h3>
-            </div>
-
-            <MaterialSearch onSelectMaterial={handleAddMaterial} />
-
-            {/* Materials List */}
-            {materialsUsed.length > 0 && (
-              <div className="space-y-2">
-                {materialsUsed.map((material) => (
-                  <div
-                    key={material.materialCode}
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-sm text-gray-900">{material.codigo}</div>
-                      <div className="text-xs text-gray-600">{material.descripcion}</div>
-                    </div>
-                    <input
-                      type="number"
-                      min="1"
-                      value={material.quantity}
-                      onChange={(e) => handleUpdateQuantity(material.materialCode, parseInt(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={() => handleRemoveMaterial(material.materialCode)}
-                      className="text-red-600 hover:text-red-700 transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+        ) : (
+          <>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Order Information */}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <h3 className="font-semibold text-gray-900 mb-3">Información de la Orden</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Tipo Vehículo:</span>
+                    <span className="ml-2 font-medium capitalize">{order.vehicleType}</span>
                   </div>
-                ))}
+                  <div>
+                    <span className="text-gray-600">Unidad Móvil:</span>
+                    <span className="ml-2 font-medium">{order.mobileUnit}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Conductor:</span>
+                    <span className="ml-2 font-medium">{order.driver}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Kilometraje:</span>
+                    <span className="ml-2 font-medium">{order.mileage} km</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Horómetro:</span>
+                    <span className="ml-2 font-medium">{order.hourmeter} hrs</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Fecha Ejecución:</span>
+                    <span className="ml-2 font-medium">{order.executionDate}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-600">Descripción:</span>
+                    <p className="mt-1 text-gray-900">{order.description}</p>
+                  </div>
+                  {order.observations && (
+                    <div className="col-span-2">
+                      <span className="text-gray-600">Observaciones:</span>
+                      <p className="mt-1 text-gray-900">{order.observations}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Signature Notice */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={18} />
-              <div className="text-sm text-amber-800">
-                <p className="font-medium">Firma Pendiente</p>
-                <p className="mt-1">Esta orden requerirá firma de conformidad en la aplicación móvil.</p>
+              {/* Verified By */}
+              <FormField
+                label="Verificado Por"
+                value={verifiedBy}
+                onChange={(e) => setVerifiedBy(e.target.value)}
+                error={errors.verifiedBy}
+                placeholder="Nombre del verificador"
+              />
+
+              {/* Materials Used Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Package className="text-blue-600" size={20} />
+                  <h3 className="font-semibold text-gray-900">Materiales Utilizados</h3>
+                </div>
+
+                <button
+                  onClick={() => setSearcherOpen(true)}
+                  className="w-full flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <Search size={18} className="text-gray-400" />
+                  <span className="text-sm text-gray-600">Buscar y agregar material...</span>
+                </button>
+
+                {/* Materials List */}
+                {materialsUsed.length > 0 && (
+                  <div className="space-y-2">
+                    {materialsUsed.map((material) => (
+                      <div
+                        key={material.materialCode}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-gray-900">{material.codigo}</div>
+                          <div className="text-xs text-gray-600">{material.descripcion}</div>
+                        </div>
+                        <input
+                          type="number"
+                          min="1"
+                          value={material.quantity}
+                          onChange={(e) => handleUpdateQuantity(material.materialCode, parseInt(e.target.value) || 0)}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => handleRemoveMaterial(material.materialCode)}
+                          className="text-red-600 hover:text-red-700 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Signature Notice */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={18} />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium">Firma Pendiente</p>
+                    <p className="mt-1">Esta orden requiere firma de conformidad en la aplicación móvil.</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
