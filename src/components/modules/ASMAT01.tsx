@@ -148,6 +148,7 @@ async function computeOpeningFromMoves(
 /**
  * Approves a single exit with full snapshot and inventory management.
  * This creates NEGATIVE quantity moves to decrease inventory.
+ * Note: Assumes all validations have been done beforehand in handleAccept.
  */
 async function approveExitWithSnapshot(
   exit: Exit,
@@ -161,11 +162,8 @@ async function approveExitWithSnapshot(
     const exitId = exit.entryId;
     const storageLocation = exit.storageLocation;
     
-    // Validate and parse quantity
+    // Parse quantity (validation already done in handleAccept)
     const qty = Number(qtyToExit);
-    if (isNaN(qty) || qty <= 0) {
-      throw new Error(`Invalid quantity for exit ${exitId}, material ${materialCode}: ${qtyToExit}`);
-    }
 
     // Compute dates and keys outside transaction
     const effectiveAt = toEffectiveAt(exit.acceptedAt, exit.entryDate);
@@ -190,21 +188,9 @@ async function approveExitWithSnapshot(
         return;
       }
 
-      // Read 2: Check current inventory
+      // Read 2: Get current inventory (should exist due to pre-validation)
       const invRef = doc(db, 'INV01', materialCode);
       const invSnap = await transaction.get(invRef);
-      
-      if (invSnap.exists()) {
-        const currentData = invSnap.data();
-        const locationData = currentData[storageLocation] || { quantity: 0 };
-        const currentQty = locationData.quantity || 0;
-        
-        if (currentQty < qty) {
-          throw new Error(`Insufficient inventory for ${materialCode} at ${storageLocation}. Available: ${currentQty}, Required: ${qty}`);
-        }
-      } else {
-        throw new Error(`No inventory found for material ${materialCode}`);
-      }
 
       // Read 3: Compute opening quantities
       const openingQtyByLocation = await computeOpeningFromMoves(materialCode, dayStartTimestamp);
@@ -272,6 +258,9 @@ async function approveExitWithSnapshot(
           [`${storageLocation}.lastExit`]: exitId,
           [`${storageLocation}.lastModified`]: recordedAt
         });
+      } else {
+        // Should never happen due to pre-validation, but handle gracefully
+        console.error(`[ASMAT01] INV01 document missing for ${materialCode} during transaction`);
       }
     });
   }
@@ -572,7 +561,9 @@ export default function ASMAT01Module() {
   // Show toast
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
+    // Longer duration for errors (8 seconds) vs success (4 seconds)
+    const duration = type === 'error' ? 8000 : 4000;
+    setTimeout(() => setToast(null), duration);
   }, []);
 
   // Accept selected exits with proper inventory management
@@ -584,6 +575,60 @@ export default function ASMAT01Module() {
     try {
       const exitsToAccept = pendingExits.filter(e => selectedPending.has(e.entryId));
       const approvedByEmail = user?.email || null;
+
+      // CRITICAL: Pre-validate ALL exits and ALL materials BEFORE processing any
+      console.log('[ASMAT01] Pre-validating all exits before processing...');
+      const validationErrors: string[] = [];
+      
+      for (const exit of exitsToAccept) {
+        const materials = Object.entries(exit.quantity);
+        
+        for (const [materialCode, qtyToExit] of materials) {
+          const storageLocation = exit.storageLocation;
+          const qty = Number(qtyToExit);
+          
+          if (isNaN(qty) || qty <= 0) {
+            validationErrors.push(`Salida ${exit.entryId}: Cantidad inválida para material ${materialCode}: ${qtyToExit}`);
+            continue;
+          }
+          
+          // Check if inventory document exists
+          const invRef = doc(db, 'INV01', materialCode);
+          const invSnap = await getDoc(invRef);
+          
+          if (!invSnap.exists()) {
+            validationErrors.push(`Salida ${exit.entryId}: No existe inventario para el material ${materialCode}. Debe registrar una entrada primero.`);
+            continue;
+          }
+          
+          const currentData = invSnap.data();
+          const locationData = currentData[storageLocation] || { quantity: 0 };
+          const currentQty = locationData.quantity || 0;
+          
+          if (currentQty < qty) {
+            validationErrors.push(`Salida ${exit.entryId}: Inventario insuficiente para ${materialCode} en ${storageLocation}. Disponible: ${currentQty}, Requerido: ${qty}`);
+          }
+        }
+      }
+      
+      // If ANY validation failed, abort ALL processing
+      if (validationErrors.length > 0) {
+
+        
+        // Show first error in toast, log all errors
+        const firstError = validationErrors[0];
+        const totalErrors = validationErrors.length;
+        
+        if (totalErrors === 1) {
+          showToast('error', firstError);
+        } else {
+          showToast('error', `${firstError} (y ${totalErrors - 1} error(es) más. Ver consola para detalles)`);
+        }
+        
+        return; // Don't process ANY exits
+      }
+      
+      console.log('[ASMAT01] All validations passed, processing exits...');
 
       // Process each exit sequentially to avoid transaction contention
       for (const exit of exitsToAccept) {
@@ -674,20 +719,27 @@ export default function ASMAT01Module() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 animate-slide-in">
-          <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
+        <div className="fixed top-4 right-4 z-50 animate-slide-in max-w-md">
+          <div className={`rounded-lg shadow-lg p-4 flex items-start gap-3 ${
             toast.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
           }`}>
             {toast.type === 'success' ? (
-              <CheckCircle className="text-green-600" size={20} />
+              <CheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
             ) : (
-              <AlertCircle className="text-red-600" size={20} />
+              <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
             )}
-            <span className={`font-medium ${
+            <span className={`font-medium flex-1 ${
               toast.type === 'success' ? 'text-green-800' : 'text-red-800'
             }`}>
               {toast.message}
             </span>
+            <button
+              onClick={() => setToast(null)}
+              className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+              aria-label="Cerrar"
+            >
+              <XCircle size={18} />
+            </button>
           </div>
         </div>
       )}

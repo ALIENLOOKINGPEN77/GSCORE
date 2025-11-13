@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Package, Save, AlertCircle, CheckCircle, X, Search } from "lucide-react";
 import { useAuth } from "../auth-context";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc, collection } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
 import Searcher, { Material } from "../searcher";
 
@@ -329,7 +329,8 @@ export default function EMAT01Module() {
         setSaving(true);
 
         try {
-            const entryRef = doc(db, 'EMAT01', `${Date.now()}`);
+            // Create a reference with auto-generated Firebase ID
+            const entryRef = doc(collection(db, 'EMAT01'));
             const entryId = entryRef.id;
 
             const entryData = {

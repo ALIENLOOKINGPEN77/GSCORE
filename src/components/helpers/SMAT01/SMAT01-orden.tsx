@@ -478,7 +478,7 @@ export default function SMAT01Orden() {
       }
     });
     
-    // Validate that combined quantities don't exceed work order amounts
+    // Validate that ALL materials are fully assigned with exact quantities
     if (selectedWorkOrder && storageAssignments.length > 0) {
       const order = workOrders.find(wo => wo.id === selectedWorkOrder);
       if (order && order.componentsUsed) {
@@ -494,13 +494,19 @@ export default function SMAT01Orden() {
           });
         });
         
-        // Check if any total exceeds the work order amount
-        Object.entries(totalQuantities).forEach(([isoCode, totalQty]) => {
-          const workOrderQty = order.componentsUsed![isoCode] || 0;
-          if (totalQty > workOrderQty) {
+        // Check that ALL materials have their exact quantities assigned
+        Object.entries(order.componentsUsed).forEach(([isoCode, workOrderQty]) => {
+          const totalQty = totalQuantities[isoCode] || 0;
+          
+          if (totalQty !== workOrderQty) {
             const material = materialDetails.find(m => m.isoCode === isoCode);
             const materialName = material?.codigo || isoCode;
-            newErrors.quantityExceeded = `La cantidad total de ${materialName} (${totalQty}) excede la cantidad requerida en la orden (${workOrderQty})`;
+            
+            if (totalQty < workOrderQty) {
+              newErrors.quantityIncomplete = `Falta asignar unidad(es) de ${materialName}.`;
+            } else if (totalQty > workOrderQty) {
+              newErrors.quantityExceeded = `La cantidad total de ${materialName} excede la cantidad requerida en la orden`;
+            }
           }
         });
       }
@@ -760,6 +766,16 @@ export default function SMAT01Orden() {
               <div>
                 <div className="font-medium">Cantidad excedida</div>
                 <div className="text-sm">{errors.quantityExceeded}</div>
+              </div>
+            </div>
+          )}
+          
+          {errors.quantityIncomplete && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2 text-red-700">
+              <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-medium">Cantidad incompleta</div>
+                <div className="text-sm">{errors.quantityIncomplete}</div>
               </div>
             </div>
           )}
