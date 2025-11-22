@@ -5,6 +5,7 @@ import { FileText, Save, AlertCircle, CheckCircle, X } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { doc, setDoc, serverTimestamp, collection, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
+import { GlobalToast } from "../Globaltoast";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -306,6 +307,12 @@ export default function CORD01() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 5000);
+  }, []);
+
   const [internalVehicles, setInternalVehicles] = useState<string[]>([]);
   const [loadingDefaults, setLoadingDefaults] = useState(true);
 
@@ -334,12 +341,6 @@ export default function CORD01() {
       setLoadingDefaults(false);
     }
   };
-
-  // Show toast
-  const showToast = useCallback((type: 'success' | 'error', message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 5000);
-  }, []);
 
   // Validate General form
   const validateGeneralForm = useCallback((): ValidationResult => {
@@ -828,27 +829,7 @@ export default function CORD01() {
         )}
 
         {/* Toast Notification */}
-        {toast && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(95vw,420px)] shadow-lg border bg-white px-4 py-3 rounded-md text-sm flex items-center gap-2"
-          >
-            {toast.type === 'success' ? (
-              <CheckCircle className="text-green-500 shrink-0" size={18} />
-            ) : (
-              <AlertCircle className="text-red-500 shrink-0" size={18} />
-            )}
-            <span className="text-gray-800">{toast.message}</span>
-            <button
-              onClick={() => setToast(null)}
-              className="ml-auto text-gray-500 hover:text-gray-700"
-              aria-label="Dismiss message"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
+        {toast && <GlobalToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </div>
     </div>
   );

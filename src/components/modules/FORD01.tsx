@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle, AlertCircle, ClipboardCheck, Wrench } from "lucide-react";
+import { ClipboardCheck, Wrench } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { 
   collection, 
@@ -13,6 +13,7 @@ import {
 import { db } from "../../lib/firebase/client";
 import GeneralModal from "../helpers/FORD01/FORD01-modal-general";
 import TallerModal from "../helpers/FORD01/FORD01-modal-taller";
+import { GlobalToast } from "../Globaltoast";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -26,45 +27,6 @@ type WorkOrder = {
   issueDate: any;
   [key: string]: any;
 };
-
-type ToastMessage = {
-  type: 'success' | 'error';
-  message: string;
-};
-
-// ============================================================================
-// TOAST COMPONENT
-// ============================================================================
-
-const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div
-      role="alert"
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(95vw,420px)] shadow-lg border bg-white px-4 py-3 rounded-md text-sm flex items-center gap-2"
-    >
-      {type === 'success' ? (
-        <CheckCircle className="text-green-500 shrink-0" size={18} />
-      ) : (
-        <AlertCircle className="text-red-500 shrink-0" size={18} />
-      )}
-      <span className="text-gray-800">{message}</span>
-      <button
-        onClick={onClose}
-        className="ml-auto text-gray-500 hover:text-gray-700"
-        aria-label="Dismiss message"
-      >
-      </button>
-    </div>
-  );
-};
-
-
 
 // ============================================================================
 // WORK ORDERS TABLE COMPONENT
@@ -106,7 +68,6 @@ const WorkOrdersTable = ({
           <td className="px-4 py-3 text-sm text-gray-700">{order.mobileUnit}</td>
           <td className="px-4 py-3 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
-              <AlertCircle className="text-amber-600 shrink-0" size={16} />
               <span className="text-amber-800 text-sm font-medium">Firma requerida en la App</span>
             </div>
           </td>
@@ -133,7 +94,7 @@ const WorkOrdersTable = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white rounded-lg border overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -180,8 +141,17 @@ export default function FORD01() {
   const [tallerOrders, setTallerOrders] = useState<WorkOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // ============================================================================
+  // TOAST HANDLER
+  // ============================================================================
+
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 5000);
+  }, []);
 
   // ============================================================================
   // LOAD WORK ORDERS
@@ -229,7 +199,7 @@ export default function FORD01() {
       setLoading(false);
     }, (error) => {
       console.error("Error loading general orders:", error);
-      setToast({ type: 'error', message: 'Error al cargar órdenes generales' });
+      showToast('error', 'Error al cargar órdenes generales');
       setLoading(false);
     });
 
@@ -266,7 +236,7 @@ export default function FORD01() {
       combineTallerOrders();
     }, (error) => {
       console.error("Error loading taller pending orders:", error);
-      setToast({ type: 'error', message: 'Error al cargar órdenes de taller' });
+      showToast('error', 'Error al cargar órdenes de taller');
     });
 
     // Independent listener for signature pending taller orders
@@ -278,7 +248,7 @@ export default function FORD01() {
       combineTallerOrders();
     }, (error) => {
       console.error("Error loading taller signature orders:", error);
-      setToast({ type: 'error', message: 'Error al cargar órdenes de taller' });
+      showToast('error', 'Error al cargar órdenes de taller');
     });
 
     return () => {
@@ -286,7 +256,7 @@ export default function FORD01() {
       unsubscribeTallerPending();
       unsubscribeTallerSignature();
     };
-  }, [user]);
+  }, [user, showToast]);
 
   // ============================================================================
   // HANDLERS
@@ -303,13 +273,13 @@ export default function FORD01() {
   }, []);
 
   const handleSuccess = useCallback((message: string) => {
-    setToast({ type: 'success', message });
+    showToast('success', message);
     handleCloseModal();
-  }, [handleCloseModal]);
+  }, [handleCloseModal, showToast]);
 
   const handleError = useCallback((message: string) => {
-    setToast({ type: 'error', message });
-  }, []);
+    showToast('error', message);
+  }, [showToast]);
 
   // ============================================================================
   // RENDER
@@ -319,7 +289,6 @@ export default function FORD01() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
           <p className="text-gray-700 font-medium">
             Debe iniciar sesión para acceder a este módulo
           </p>
@@ -341,20 +310,21 @@ export default function FORD01() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {toast && <GlobalToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center gap-3 mb-2">
           <ClipboardCheck className="text-blue-600" size={32} />
-          <h1 className="text-3xl font-bold text-gray-900">FORD01</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Finalización de Orden de Trabajo</h1>
         </div>
-
       </div>
 
       {/* General Orders Section */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Wrench className="text-gray-700" size={24} />
-          <h2 className="text-xl font-semibold text-gray-800">órdenes Generales</h2>
+          <h2 className="text-xl font-semibold text-gray-800">Órdenes Generales</h2>
         </div>
         <WorkOrdersTable 
           orders={generalOrders} 
@@ -367,7 +337,7 @@ export default function FORD01() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-2 mb-4">
           <Wrench className="text-gray-700" size={24} />
-          <h2 className="text-xl font-semibold text-gray-800">órdenes de Taller</h2>
+          <h2 className="text-xl font-semibold text-gray-800">Órdenes de Taller</h2>
         </div>
         <WorkOrdersTable 
           orders={tallerOrders} 
@@ -393,15 +363,6 @@ export default function FORD01() {
             onError={handleError}
           />
         )
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
       )}
     </div>
   );

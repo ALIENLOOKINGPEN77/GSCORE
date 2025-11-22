@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Package, Save, AlertCircle, CheckCircle, X, Search } from "lucide-react";
+import { Package, Save, AlertCircle, Search } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { doc, setDoc, serverTimestamp, getDoc, collection } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
+import { GlobalToast } from "../Globaltoast";
 import Searcher, { Material } from "../searcher";
 
 // Form data type
@@ -167,37 +168,6 @@ const TextAreaField = ({
         </div>
     );
 };
-
-// Toast Component
-const Toast = ({ 
-    message, 
-    type, 
-    onClose 
-}: { 
-    message: string; 
-    type: 'success' | 'error'; 
-    onClose: () => void;
-}) => (
-    <div className="fixed top-4 right-4 z-50 animate-slide-in">
-        <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
-            type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-        }`}>
-            {type === 'success' ? (
-                <CheckCircle className="text-green-600" size={20} />
-            ) : (
-                <AlertCircle className="text-red-600" size={20} />
-            )}
-            <span className={`font-medium ${
-                type === 'success' ? 'text-green-800' : 'text-red-800'
-            }`}>
-                {message}
-            </span>
-            <button onClick={onClose} className="ml-2 hover:bg-gray-200 rounded p-1 transition-colors">
-                <X size={16} />
-            </button>
-        </div>
-    </div>
-);
 
 export default function EMAT01Module() {
     const { user } = useAuth();
@@ -385,7 +355,7 @@ export default function EMAT01Module() {
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            {toast && <GlobalToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
             <Searcher
                 isOpen={searcherOpen}

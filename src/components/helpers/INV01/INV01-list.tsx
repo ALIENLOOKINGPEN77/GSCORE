@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
-import { X, Search } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { 
   collection,
   query,
@@ -64,7 +64,6 @@ export default function INV01List({ material, onClose }: INV01ListProps) {
   const [loading, setLoading] = useState(true);
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadAllMovements();
@@ -111,18 +110,6 @@ export default function INV01List({ material, onClose }: INV01ListProps) {
     }
   };
 
-  // Filter movements by reason
-  const filteredMovements = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return movements;
-    }
-    
-    const term = searchTerm.toLowerCase().trim();
-    return movements.filter(movement => 
-      movement.reason?.toLowerCase().includes(term)
-    );
-  }, [movements, searchTerm]);
-
   const handleOpenDetail = (movement: Movement) => {
     setSelectedMovement(movement);
     setDetailModalOpen(true);
@@ -163,24 +150,7 @@ export default function INV01List({ material, onClose }: INV01ListProps) {
             </button>
           </div>
 
-          {/* Search Bar */}
-          <div className="p-6 border-b border-gray-200 bg-gray-50">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por razón..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            {searchTerm && (
-              <div className="mt-2 text-sm text-gray-600">
-                {filteredMovements.length} movimiento(s) encontrado(s)
-              </div>
-            )}
-          </div>
+          {/* Search Bar Removed */}
 
           {/* Modal Content */}
           <div className="flex-1 overflow-y-auto p-6">
@@ -188,13 +158,13 @@ export default function INV01List({ material, onClose }: INV01ListProps) {
               <div className="flex items-center justify-center py-12">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : filteredMovements.length === 0 ? (
+            ) : movements.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <p className="text-lg font-medium">
-                  {searchTerm ? 'No se encontraron movimientos' : 'No hay movimientos registrados'}
+                  {'No hay movimientos registrados'}
                 </p>
                 <p className="text-sm mt-1">
-                  {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Este material no tiene movimientos en el sistema'}
+                  {'Este material no tiene movimientos en el sistema'}
                 </p>
               </div>
             ) : (
@@ -214,16 +184,14 @@ export default function INV01List({ material, onClose }: INV01ListProps) {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Ubicación
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Razón
-                      </th>
+                      {/* "Razón" th removed */}
                       <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Acción
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredMovements.map((movement) => (
+                    {movements.map((movement) => (
                       <tr
                         key={movement.moveId}
                         className={`transition-colors ${
@@ -246,9 +214,7 @@ export default function INV01List({ material, onClose }: INV01ListProps) {
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {movement.storageLocation}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
-                          {movement.reason || '-'}
-                        </td>
+                        {/* "Razón" td removed */}
                         <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => handleOpenDetail(movement)}

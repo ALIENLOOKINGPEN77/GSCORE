@@ -284,18 +284,6 @@ function GeneralOrderDetails({ order }: { order: WorkOrder }) {
         </div>
       )}
 
-      {/* Status */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="font-semibold text-gray-900 mb-2">Estado</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Trabajo Completado:</span>
-            <span className={`font-medium ${order.state ? 'text-green-600' : 'text-amber-600'}`}>
-              {order.state ? 'Sí' : 'No'}
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -378,24 +366,7 @@ function TallerOrderDetails({ order }: { order: WorkOrder }) {
         </div>
       )}
 
-      {/* Status */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="font-semibold text-gray-900 mb-2">Estado</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Trabajo Completado:</span>
-            <span className={`font-medium ${order.state ? 'text-green-600' : 'text-amber-600'}`}>
-              {order.state ? 'Sí' : 'No'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Firmado:</span>
-            <span className={`font-medium ${order.stateSig ? 'text-green-600' : 'text-amber-600'}`}>
-              {order.stateSig ? 'Sí' : 'Pendiente'}
-            </span>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { X, Save, Search, Trash2, AlertCircle, Package, CheckCircle } from "lucide-react";
+import { X, Save, Search, Trash2, AlertCircle, Package } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase/client";
 import Searcher, { Material } from "../../searcher";
+import { GlobalToast } from "../../Globaltoast";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -30,42 +31,8 @@ type MaterialUsed = {
   materialCode: string;
   codigo: string;
   descripcion: string;
-  quantity: number;
+  quantity: number | string;
 };
-
-// ============================================================================
-// TOAST COMPONENT
-// ============================================================================
-
-const Toast = ({ 
-  message, 
-  type, 
-  onClose 
-}: { 
-  message: string; 
-  type: 'success' | 'error'; 
-  onClose: () => void;
-}) => (
-  <div className="fixed top-4 right-4 z-[9999] animate-slide-in">
-    <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
-      type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-    }`}>
-      {type === 'success' ? (
-        <CheckCircle className="text-green-600" size={20} />
-      ) : (
-        <AlertCircle className="text-red-600" size={20} />
-      )}
-      <span className={`font-medium ${
-        type === 'success' ? 'text-green-800' : 'text-red-800'
-      }`}>
-        {message}
-      </span>
-      <button onClick={onClose} className="ml-2 hover:bg-gray-200 rounded p-1 transition-colors">
-        <X size={16} />
-      </button>
-    </div>
-  </div>
-);
 
 // ============================================================================
 // FORM FIELD COMPONENTS
@@ -169,7 +136,7 @@ export default function GeneralModal({
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [searcherOpen, setSearcherOpen] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   // Initialize materials from order
   useEffect(() => {
@@ -190,7 +157,7 @@ export default function GeneralModal({
 
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   }, []);
 
   // Add material to list
@@ -211,14 +178,25 @@ export default function GeneralModal({
   }, [materialsUsed, showToast]);
 
   // Update material quantity
-  const handleUpdateQuantity = useCallback((materialCode: string, quantity: number) => {
-    if (quantity <= 0) {
-      setMaterialsUsed(prev => prev.filter(m => m.materialCode !== materialCode));
-    } else {
-      setMaterialsUsed(prev => prev.map(m =>
-        m.materialCode === materialCode ? { ...m, quantity } : m
-      ));
-    }
+  const handleUpdateQuantity = useCallback((materialCode: string, value: string) => {
+    setMaterialsUsed(prev => prev.map(m =>
+      m.materialCode === materialCode ? { ...m, quantity: value } : m
+    ));
+  }, []);
+
+  // Handle blur event to validate and clean up quantity
+  const handleQuantityBlur = useCallback((materialCode: string) => {
+    setMaterialsUsed(prev => prev.map(m => {
+      if (m.materialCode === materialCode) {
+        const numValue = typeof m.quantity === 'string' ? parseInt(m.quantity) : m.quantity;
+        // If invalid or zero, set to 1
+        if (isNaN(numValue) || numValue <= 0) {
+          return { ...m, quantity: 1 };
+        }
+        return { ...m, quantity: numValue };
+      }
+      return m;
+    }));
   }, []);
 
   // Remove material
@@ -254,7 +232,10 @@ export default function GeneralModal({
       // Convert materials to componentsUsed map
       const componentsUsed: { [key: string]: number } = {};
       materialsUsed.forEach(material => {
-        componentsUsed[material.materialCode] = material.quantity;
+        const qty = typeof material.quantity === 'string' ? parseInt(material.quantity) : material.quantity;
+        if (!isNaN(qty) && qty > 0) {
+          componentsUsed[material.materialCode] = qty;
+        }
       });
 
       const orderRef = doc(db, "CORD01", order.orderId);
@@ -277,13 +258,7 @@ export default function GeneralModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
+      {toast && <GlobalToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <Searcher
         isOpen={searcherOpen}
@@ -392,10 +367,10 @@ export default function GeneralModal({
                           <div className="text-xs text-gray-600">{material.descripcion}</div>
                         </div>
                         <input
-                          type="number"
-                          min="1"
+                          type="text"
                           value={material.quantity}
-                          onChange={(e) => handleUpdateQuantity(material.materialCode, parseInt(e.target.value) || 0)}
+                          onChange={(e) => handleUpdateQuantity(material.materialCode, e.target.value)}
+                          onBlur={() => handleQuantityBlur(material.materialCode)}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button

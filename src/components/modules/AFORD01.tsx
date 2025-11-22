@@ -91,7 +91,7 @@ const ConfirmationModal = ({
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex items-start gap-3 mb-4">
           {action === 'accept' ? (
-            <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={24} />
+            <Check className="text-green-600 flex-shrink-0 mt-1" size={24} />
           ) : (
             <Trash2 className="text-red-600 flex-shrink-0 mt-1" size={24} />
           )}
@@ -285,7 +285,7 @@ export default function AFORD01() {
       <div className="max-w-7xl mx-auto mb-6">
         <div className="flex items-center gap-3 mb-2">
           <FileCheck className="text-blue-600" size={32} />
-          <h1 className="text-3xl font-bold text-gray-900">AFORD01</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Administrador de órdenes de Trabajo</h1>
         </div>
       </div>
 
@@ -313,7 +313,7 @@ export default function AFORD01() {
 
       {/* Orders Table */}
       <div className="max-w-7xl mx-auto mb-6">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden" style={{ maxHeight: '500px' }}>
+        <div className="bg-white rounded-lg border overflow-hidden" style={{ maxHeight: '500px' }}>
           <div className="overflow-auto" style={{ maxHeight: '500px' }}>
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">

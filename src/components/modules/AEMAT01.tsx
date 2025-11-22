@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
-import { CheckSquare, Square, Check, X, AlertCircle, CheckCircle, Package, Calendar as CalendarIcon } from "lucide-react";
+import { CheckSquare, Square, Check, X, AlertCircle, Package, Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { 
   collection, 
@@ -22,6 +22,7 @@ import {
   DocumentData
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
+import { GlobalToast } from "../Globaltoast";
 
 // ============================================================================
 // TIMEZONE HELPERS (America/Asuncion)
@@ -110,6 +111,64 @@ const timestampToDateString = (timestamp: Timestamp): string => {
 const timestampMatchesDate = (timestamp: Timestamp | undefined, dateString: string): boolean => {
   if (!timestamp) return false;
   return timestampToDateString(timestamp) === dateString;
+};
+
+// ============================================================================
+// CONFIRMATION MODAL
+// ============================================================================
+
+const ConfirmationModal = ({
+  action,
+  count,
+  onConfirm,
+  onCancel
+}: {
+  action: 'accept' | 'deny';
+  count: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="flex items-start gap-3 mb-4">
+          {action === 'accept' ? (
+            <Check className="text-green-600 flex-shrink-0 mt-1" size={24} />
+          ) : (
+            <Trash2 className="text-red-600 flex-shrink-0 mt-1" size={24} />
+          )}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              {action === 'accept' ? 'Aceptar Entradas' : 'Denegar Entradas'}
+            </h3>
+            <p className="text-sm text-gray-600">
+              {action === 'accept'
+                ? `¿Está seguro que desea aceptar ${count} entrada(s)? Las entradas aceptadas actualizarán el inventario.`
+                : `¿Está seguro que desea denegar y eliminar ${count} entrada(s)? Esta acción no se puede deshacer.`}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 text-white rounded-md transition-colors ${
+              action === 'accept'
+                ? 'bg-green-600 hover:bg-green-700'
+                : 'bg-red-600 hover:bg-red-700'
+            }`}
+          >
+            {action === 'accept' ? 'Aceptar' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ============================================================================
@@ -350,6 +409,7 @@ export default function AEMAT01Module() {
   const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [materialLookup, setMaterialLookup] = useState<MaterialLookup>({});
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
+  const [showConfirmation, setShowConfirmation] = useState<'accept' | 'deny' | null>(null);
 
   // Load material lookup table
   useEffect(() => {
@@ -504,10 +564,7 @@ export default function AEMAT01Module() {
 
   // Accept selected entries with proper inventory management
   const handleAccept = useCallback(async () => {
-    if (selectedPending.size === 0) return;
-
     setProcessing(true);
-
     try {
       const entriesToAccept = pendingEntries.filter(e => selectedPending.has(e.entryId));
       const approvedByEmail = user?.email || null;
@@ -526,19 +583,13 @@ export default function AEMAT01Module() {
       showToast('error', 'Error al aceptar las entradas y actualizar el inventario');
     } finally {
       setProcessing(false);
+      setShowConfirmation(null);
     }
   }, [selectedPending, pendingEntries, user, showToast]);
 
   // Deny selected entries (delete)
   const handleDeny = useCallback(async () => {
-    if (selectedPending.size === 0) return;
-
-    if (!window.confirm(`¿Está seguro de que desea denegar y eliminar ${selectedPending.size} entrada(s)?`)) {
-      return;
-    }
-
     setProcessing(true);
-
     try {
       const promises: Promise<void>[] = [];
       
@@ -558,304 +609,294 @@ export default function AEMAT01Module() {
       showToast('error', 'Error al denegar las entradas');
     } finally {
       setProcessing(false);
+      setShowConfirmation(null);
     }
   }, [selectedPending, showToast]);
 
   if (loading) {
     return (
-      <section className="w-full p-6 bg-gray-50 min-h-full flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Cargando entradas...</p>
         </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="w-full p-6 bg-gray-50 min-h-full">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Package className="text-blue-600" size={24} />
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            AEMAT01 — Administración de Entradas de Materiales
-          </h1>
-        </div>
-      </header>
-
-      {/* Pending Entries Section */}
-      <div className="bg-white border rounded-lg shadow-sm mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Entradas Pendientes</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {pendingEntries.length} entrada(s) esperando aprobación
-                {selectedPending.size > 0 && ` • ${selectedPending.size} seleccionada(s)`}
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleAccept}
-                disabled={selectedPending.size === 0 || processing}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
-              >
-                {processing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Check size={18} />
-                    Aceptar Entrada
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={handleDeny}
-                disabled={selectedPending.size === 0 || processing}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
-              >
-                <X size={18} />
-                Denegar Entrada
-              </button>
-            </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Package size={32} className="text-green-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Aprobación de Entradas de Material</h1>
           </div>
         </div>
 
-        {/* Pending Entries Table */}
-        <div className="overflow-x-auto">
-          {pendingEntries.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <Package size={48} className="mx-auto mb-3 text-gray-400" />
-              <p className="text-lg font-medium">No hay entradas pendientes</p>
-              <p className="text-sm mt-1">Todas las entradas han sido procesadas</p>
+        {/* Pending Entries Section */}
+        <div className="bg-white border rounded-lg shadow-sm mb-6">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Entradas Pendientes</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {pendingEntries.length} entrada(s) esperando aprobación
+                  {selectedPending.size > 0 && ` • ${selectedPending.size} seleccionada(s)`}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirmation('accept')}
+                  disabled={selectedPending.size === 0 || processing}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
+                >
+                  {processing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={18} />
+                      Aceptar
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowConfirmation('deny')}
+                  disabled={selectedPending.size === 0 || processing}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
+                >
+                  <X size={18} />
+                  Denegar
+                </button>
+              </div>
             </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left">
-                    <button
-                      onClick={selectAll}
-                      className="hover:bg-gray-200 rounded p-1 transition-colors"
-                    >
-                      {selectedPending.size === pendingEntries.length ? (
-                        <CheckSquare size={20} className="text-blue-600" />
-                      ) : (
-                        <Square size={20} className="text-gray-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Material
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Descripción
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Cantidad
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Ubicación
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Razón
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Creado Por
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {pendingEntries.map((entry) => (
-                  <tr
-                    key={entry.entryId}
-                    className={`hover:bg-gray-50 transition-colors ${
-                      selectedPending.has(entry.entryId) ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3">
+          </div>
+
+          {/* Pending Entries Table */}
+          <div className="overflow-x-auto">
+            {pendingEntries.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <Package size={48} className="mx-auto mb-3 text-gray-400" />
+                <p className="text-lg font-medium">No hay entradas pendientes</p>
+                <p className="text-sm mt-1">Todas las entradas han sido procesadas</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => toggleSelection(entry.entryId)}
+                        onClick={selectAll}
                         className="hover:bg-gray-200 rounded p-1 transition-colors"
                       >
-                        {selectedPending.has(entry.entryId) ? (
-                          <CheckSquare size={20} className="text-blue-600" />
+                        {selectedPending.size === pendingEntries.length ? (
+                          <CheckSquare size={20} className="text-green-600" />
                         ) : (
                           <Square size={20} className="text-gray-400" />
                         )}
                       </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
-                      {entry.materialDisplayCode}
-                    </td>
-                    <td className="px-4 py-3">
-                      <TooltipCell text={entry.materialDescription} maxWidth="max-w-xs" />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                      {entry.quantity}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {entry.storageLocation}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {entry.entryType}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {entry.entryDate}
-                    </td>
-                    <td className="px-4 py-3">
-                      <TooltipCell text={entry.reason} maxWidth="max-w-xs" />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {entry.createdByEmail}
-                    </td>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Material
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Descripción
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Cantidad
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Ubicación
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Razón
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Creado Por
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {/* Accepted Entries Section */}
-      <div className="bg-white border rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Entradas Aceptadas</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {filteredAcceptedEntries.length} entrada(s) confirmada(s) para {selectedDate}
-              </p>
-            </div>
-
-            {/* Date Picker */}
-            <div className="flex items-center gap-2">
-              <CalendarIcon size={18} className="text-gray-500" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={() => setSelectedDate(getTodayDate())}
-                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium"
-              >
-                Hoy
-              </button>
-            </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {pendingEntries.map((entry) => (
+                    <tr
+                      key={entry.entryId}
+                      className={`hover:bg-gray-50 transition-colors ${
+                        selectedPending.has(entry.entryId) ? 'bg-green-50' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => toggleSelection(entry.entryId)}
+                          className="hover:bg-gray-200 rounded p-1 transition-colors"
+                        >
+                          {selectedPending.has(entry.entryId) ? (
+                            <CheckSquare size={20} className="text-green-600" />
+                          ) : (
+                            <Square size={20} className="text-gray-400" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
+                        {entry.materialDisplayCode}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TooltipCell text={entry.materialDescription} maxWidth="max-w-xs" />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                        {entry.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.storageLocation}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.entryType}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.entryDate}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TooltipCell text={entry.reason} maxWidth="max-w-xs" />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {entry.createdByEmail}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
-        {/* Accepted Entries Table */}
-        <div className="overflow-x-auto">
-          {filteredAcceptedEntries.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <CheckCircle size={48} className="mx-auto mb-3 text-gray-400" />
-              <p className="text-lg font-medium">No hay entradas aceptadas para esta fecha</p>
-              <p className="text-sm mt-1">Seleccione otra fecha para ver las entradas aceptadas</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Material
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Descripción
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Cantidad
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Ubicación
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Fecha Entrada
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Razón
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Creado Por
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredAcceptedEntries.map((entry) => (
-                  <tr key={entry.entryId} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
-                      {entry.materialDisplayCode}
-                    </td>
-                    <td className="px-4 py-3">
-                      <TooltipCell text={entry.materialDescription} maxWidth="max-w-xs" />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                      {entry.quantity}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {entry.storageLocation}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {entry.entryType}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {entry.entryDate}
-                    </td>
-                    <td className="px-4 py-3">
-                      <TooltipCell text={entry.reason} maxWidth="max-w-xs" />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {entry.createdByEmail}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+        {/* Accepted Entries Section */}
+        <div className="bg-white border rounded-lg shadow-sm">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Entradas Aceptadas</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {filteredAcceptedEntries.length} entrada(s) confirmada(s) para {selectedDate}
+                </p>
+              </div>
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          role="alert"
-          aria-live="polite"
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(95vw,420px)] shadow-lg border bg-white px-4 py-3 rounded-md text-sm flex items-center gap-2"
-        >
-          {toast.type === 'success' ? (
-            <CheckCircle className="text-green-500 shrink-0" size={18} />
-          ) : (
-            <AlertCircle className="text-red-500 shrink-0" size={18} />
-          )}
-          <span className="text-gray-800">{toast.message}</span>
-          <button
-            onClick={() => setToast(null)}
-            className="ml-auto text-gray-500 hover:text-gray-700"
-            aria-label="Dismiss message"
-          >
-            <X size={16} />
-          </button>
+              {/* Date Picker */}
+              <div className="flex items-center gap-2">
+                <CalendarIcon size={18} className="text-gray-500" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <button
+                  onClick={() => setSelectedDate(getTodayDate())}
+                  className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium"
+                >
+                  Hoy
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Accepted Entries Table */}
+          <div className="overflow-x-auto">
+            {filteredAcceptedEntries.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <Check size={48} className="mx-auto mb-3 text-gray-400" />
+                <p className="text-lg font-medium">No hay entradas aceptadas para esta fecha</p>
+                <p className="text-sm mt-1">Seleccione otra fecha para ver las entradas aceptadas</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Material
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Descripción
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Cantidad
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Ubicación
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Fecha Entrada
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Razón
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Creado Por
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredAcceptedEntries.map((entry) => (
+                    <tr key={entry.entryId} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
+                        {entry.materialDisplayCode}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TooltipCell text={entry.materialDescription} maxWidth="max-w-xs" />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                        {entry.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.storageLocation}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.entryType}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.entryDate}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TooltipCell text={entry.reason} maxWidth="max-w-xs" />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {entry.createdByEmail}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      )}
-    </section>
+
+        {/* Toast Notification */}
+        {toast && <GlobalToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+        {/* Confirmation Modal */}
+        {showConfirmation && (
+          <ConfirmationModal
+            action={showConfirmation}
+            count={selectedPending.size}
+            onConfirm={showConfirmation === 'accept' ? handleAccept : handleDeny}
+            onCancel={() => setShowConfirmation(null)}
+          />
+        )}
+      </div>
+    </div>
   );
 }

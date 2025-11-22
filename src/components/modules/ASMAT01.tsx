@@ -3,11 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { 
   PackageMinus, 
-  CheckCircle, 
+  Check, 
   XCircle, 
   AlertCircle,
   FileText,
-  Clock
+  Clock,
+  Eye
 } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { 
@@ -26,6 +27,7 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
+import ASMAT01Modal from "../helpers/ASMAT01/ASMAT01-modal";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -46,10 +48,16 @@ type Exit = {
   createdAt: Timestamp;
   acceptedAt?: Timestamp;
   workOrderDetails?: {
-    tipo?: string;
-    equipo?: string;
+    orderType?: string;
+    // Taller fields
+    mobileUnit?: string;
+    vehicleType?: string;
+    driver?: string;
+    // General fields
     equipment?: string;
-    descripcion?: string;
+    assignedTechnicians?: Record<string, string>;
+    workPerformed?: string;
+    // Common fields
     description?: string;
   };
 };
@@ -333,6 +341,8 @@ export default function ASMAT01Module() {
   const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [materialLookup, setMaterialLookup] = useState<MaterialLookup>({});
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
+  const [selectedExit, setSelectedExit] = useState<Exit | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   // Load material lookup table
   useEffect(() => {
@@ -385,10 +395,16 @@ export default function ASMAT01Module() {
               if (woSnap.exists()) {
                 const woData = woSnap.data();
                 workOrderDetails = {
-                  tipo: woData.tipo,
-                  equipo: woData.equipo,
+                  orderType: woData.orderType,
+                  // Taller fields
+                  mobileUnit: woData.mobileUnit,
+                  vehicleType: woData.vehicleType,
+                  driver: woData.driver,
+                  // General fields
                   equipment: woData.equipment,
-                  descripcion: woData.descripcion,
+                  assignedTechnicians: woData.assignedTechnicians,
+                  workPerformed: woData.workPerformed,
+                  // Common
                   description: woData.description
                 };
               }
@@ -462,10 +478,16 @@ export default function ASMAT01Module() {
               if (woSnap.exists()) {
                 const woData = woSnap.data();
                 workOrderDetails = {
-                  tipo: woData.tipo,
-                  equipo: woData.equipo,
+                  orderType: woData.orderType,
+                  // Taller fields
+                  mobileUnit: woData.mobileUnit,
+                  vehicleType: woData.vehicleType,
+                  driver: woData.driver,
+                  // General fields
                   equipment: woData.equipment,
-                  descripcion: woData.descripcion,
+                  assignedTechnicians: woData.assignedTechnicians,
+                  workPerformed: woData.workPerformed,
+                  // Common
                   description: woData.description
                 };
               }
@@ -566,6 +588,18 @@ export default function ASMAT01Module() {
     setTimeout(() => setToast(null), duration);
   }, []);
 
+  // Open modal with exit details
+  const openModal = useCallback((exit: Exit) => {
+    setSelectedExit(exit);
+    setShowModal(true);
+  }, []);
+
+  // Close modal
+  const closeModal = useCallback(() => {
+    setShowModal(false);
+    setSelectedExit(null);
+  }, []);
+
   // Accept selected exits with proper inventory management
   const handleAccept = useCallback(async () => {
     if (selectedPending.size === 0) return;
@@ -613,7 +647,7 @@ export default function ASMAT01Module() {
       
       // If ANY validation failed, abort ALL processing
       if (validationErrors.length > 0) {
-
+        console.error('[ASMAT01] Validation failed:', validationErrors);
         
         // Show first error in toast, log all errors
         const firstError = validationErrors[0];
@@ -688,11 +722,6 @@ export default function ASMAT01Module() {
     }
   }, [selectedPending, pendingExits, showToast]);
 
-  // Calculate total quantity for display
-  const getTotalQuantity = (quantityMap: Record<string, number>): number => {
-    return Object.values(quantityMap).reduce((sum, qty) => sum + qty, 0);
-  };
-
   if (loading) {
     return (
       <section className="w-full p-6 bg-gray-50 min-h-full flex items-center justify-center">
@@ -712,7 +741,7 @@ export default function ASMAT01Module() {
             <PackageMinus className="text-red-600" size={24} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">
-            ASMAT01 – Administración de Salidas de Materiales
+             Administración de Salidas de Materiales
           </h1>
         </div>
       </header>
@@ -724,7 +753,7 @@ export default function ASMAT01Module() {
             toast.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
           }`}>
             {toast.type === 'success' ? (
-              <CheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
+              <Check className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
             ) : (
               <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
             )}
@@ -742,6 +771,15 @@ export default function ASMAT01Module() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Modal */}
+      {showModal && selectedExit && (
+        <ASMAT01Modal
+          exit={selectedExit}
+          materialLookup={materialLookup}
+          onClose={closeModal}
+        />
       )}
 
       {/* Pending Exits Section */}
@@ -770,8 +808,8 @@ export default function ASMAT01Module() {
                   </>
                 ) : (
                   <>
-                    <CheckCircle size={18} />
-                    Aceptar ({selectedPending.size})
+                    <Check size={18} />
+                    Aceptar
                   </>
                 )}
               </button>
@@ -781,7 +819,7 @@ export default function ASMAT01Module() {
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
               >
                 <XCircle size={18} />
-                Denegar ({selectedPending.size})
+                Denegar
               </button>
             </div>
           </div>
@@ -801,18 +839,16 @@ export default function ASMAT01Module() {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tipo</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Material</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Ubicación</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cantidad Total</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Razón</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Creado Por</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {pendingExits.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No hay salidas pendientes
                   </td>
                 </tr>
@@ -839,28 +875,18 @@ export default function ASMAT01Module() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">
-                        {exit.materialDisplayCode}
-                      </div>
-                      <TooltipCell text={exit.materialDescription} maxWidth="max-w-xs" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-900">{exit.storageLocation}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-gray-900">
-                        {getTotalQuantity(exit.quantity)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600">{exit.entryDate}</span>
+                      <span className="text-sm text-gray-900">{exit.entryDate}</span>
                     </td>
                     <td className="px-4 py-3">
                       {exit.entryType === 'orden' && exit.workOrderDetails ? (
                         <div>
                           <div className="text-sm font-medium text-gray-900">{exit.reason}</div>
                           <TooltipCell 
-                            text={exit.workOrderDetails.equipo || exit.workOrderDetails.equipment || 'N/A'} 
+                            text={
+                              exit.workOrderDetails.mobileUnit || 
+                              exit.workOrderDetails.equipment || 
+                              'N/A'
+                            } 
                             maxWidth="max-w-xs" 
                           />
                         </div>
@@ -870,6 +896,15 @@ export default function ASMAT01Module() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-gray-600">{exit.createdByEmail}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => openModal(exit)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                      >
+                        <Eye size={16} />
+                        Ver Detalles
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -903,9 +938,6 @@ export default function ASMAT01Module() {
               <h2 className="text-xl font-semibold text-gray-900">
                 Salidas por Orden de Trabajo
               </h2>
-              <span className="ml-auto text-sm text-gray-600">
-                {filteredAcceptedOrdenExits.length} salida(s) el {selectedDate}
-              </span>
             </div>
           </div>
 
@@ -913,18 +945,17 @@ export default function ASMAT01Module() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Orden</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Equipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Material</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Ubicación</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cantidad</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Aprobado Por</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Razón</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Creado Por</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredAcceptedOrdenExits.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                       No hay salidas por orden de trabajo en esta fecha
                     </td>
                   </tr>
@@ -932,30 +963,37 @@ export default function ASMAT01Module() {
                   filteredAcceptedOrdenExits.map((exit) => (
                     <tr key={exit.entryId} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-gray-900">{exit.reason}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <TooltipCell 
-                          text={exit.workOrderDetails?.equipo || exit.workOrderDetails?.equipment || 'N/A'} 
-                          maxWidth="max-w-xs" 
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900">
-                          {exit.materialDisplayCode}
-                        </div>
-                        <TooltipCell text={exit.materialDescription} maxWidth="max-w-xs" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-gray-900">{exit.storageLocation}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-gray-900">
-                          {getTotalQuantity(exit.quantity)}
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
+                          Orden
                         </span>
                       </td>
                       <td className="px-4 py-3">
+                        <span className="text-sm text-gray-900">{exit.entryDate}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{exit.reason}</div>
+                          <TooltipCell 
+                            text={
+                              exit.workOrderDetails?.mobileUnit || 
+                              exit.workOrderDetails?.equipment || 
+                              'N/A'
+                            } 
+                            maxWidth="max-w-xs" 
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-600">{exit.createdByEmail}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => openModal(exit)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                        >
+                          <Eye size={16} />
+                          Ver Detalles
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -973,14 +1011,58 @@ export default function ASMAT01Module() {
               <h2 className="text-xl font-semibold text-gray-900">
                 Salidas Particulares
               </h2>
-              <span className="ml-auto text-sm text-gray-600">
-                {filteredAcceptedParticularExits.length} salida(s) el {selectedDate}
-              </span>
             </div>
           </div>
 
-          <div className="p-6 text-center text-gray-500">
-            <p>Las salidas particulares aún no están implementadas</p>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Razón</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Creado Por</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredAcceptedParticularExits.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                      No hay salidas particulares en esta fecha
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAcceptedParticularExits.map((exit) => (
+                    <tr key={exit.entryId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800">
+                          Particular
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-900">{exit.entryDate}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <TooltipCell text={exit.reason} maxWidth="max-w-xs" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-600">{exit.createdByEmail}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => openModal(exit)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                        >
+                          <Eye size={16} />
+                          Ver Detalles
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -992,14 +1074,58 @@ export default function ASMAT01Module() {
               <h2 className="text-xl font-semibold text-gray-900">
                 Salidas por Ajuste
               </h2>
-              <span className="ml-auto text-sm text-gray-600">
-                {filteredAcceptedAjusteExits.length} salida(s) el {selectedDate}
-              </span>
             </div>
           </div>
 
-          <div className="p-6 text-center text-gray-500">
-            <p>Las salidas por ajuste aún no están implementadas</p>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Razón</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Creado Por</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredAcceptedAjusteExits.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                      No hay salidas por ajuste en esta fecha
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAcceptedAjusteExits.map((exit) => (
+                    <tr key={exit.entryId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-orange-100 text-orange-800">
+                          Ajuste
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-900">{exit.entryDate}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <TooltipCell text={exit.reason} maxWidth="max-w-xs" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-600">{exit.createdByEmail}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => openModal(exit)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                        >
+                          <Eye size={16} />
+                          Ver Detalles
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

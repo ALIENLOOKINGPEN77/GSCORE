@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
-import { Search, CheckSquare, Square, Package, Eye } from "lucide-react";
+import { Search, CheckSquare, Square, Package, Eye, FileText } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { 
   collection, 
@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
 import INV01Modal from "../helpers/INV01/INV01-modal";
+import INV01Report from "../helpers/INV01/INV01-report";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -88,9 +89,10 @@ export default function INV01() {
   const [loading, setLoading] = useState(true);
   const [searchType, setSearchType] = useState<SearchType>('descripcion');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
+  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [selectedMaterialData, setSelectedMaterialData] = useState<Material | null>(null);
 
   // Load materials on mount
   useEffect(() => {
@@ -155,40 +157,32 @@ export default function INV01() {
     });
   }, [materials, searchTerm, searchType]);
 
-  // Selection handlers
+  // Selection handler - now only allows single selection
   const toggleSelection = useCallback((documentId: string) => {
-    setSelectedMaterials(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(documentId)) {
-        newSet.delete(documentId);
-      } else {
-        newSet.add(documentId);
-      }
-      return newSet;
-    });
+    setSelectedMaterial(prev => prev === documentId ? null : documentId);
   }, []);
 
-  const selectAll = useCallback(() => {
-    if (selectedMaterials.size === filteredMaterials.length) {
-      setSelectedMaterials(new Set());
-    } else {
-      setSelectedMaterials(new Set(filteredMaterials.map(m => m.documentId)));
-    }
-  }, [filteredMaterials, selectedMaterials.size]);
-
   const handleOpenModal = useCallback(() => {
-    // Open modal with the first selected material
-    const firstSelected = Array.from(selectedMaterials)[0];
-    const material = materials.find(m => m.documentId === firstSelected);
-    if (material) {
-      setSelectedMaterial(material);
-      setModalOpen(true);
+    if (selectedMaterial) {
+      const material = materials.find(m => m.documentId === selectedMaterial);
+      if (material) {
+        setSelectedMaterialData(material);
+        setModalOpen(true);
+      }
     }
-  }, [selectedMaterials, materials]);
+  }, [selectedMaterial, materials]);
 
   const handleCloseModal = useCallback(() => {
     setModalOpen(false);
-    setSelectedMaterial(null);
+    setSelectedMaterialData(null);
+  }, []);
+
+  const handleReporte = useCallback(() => {
+    setReportModalOpen(true);
+  }, []);
+
+  const handleCloseReportModal = useCallback(() => {
+    setReportModalOpen(false);
   }, []);
 
   return (
@@ -252,10 +246,19 @@ export default function INV01() {
               />
             </div>
 
+            {/* Reporte Button */}
+            <button
+              onClick={handleReporte}
+              className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-all font-medium flex items-center gap-2"
+            >
+              <FileText size={18} />
+              Reporte
+            </button>
+
             {/* View Details Button */}
             <button
               onClick={handleOpenModal}
-              disabled={selectedMaterials.size !== 1}
+              disabled={!selectedMaterial}
               className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
             >
               <Eye size={18} />
@@ -267,6 +270,15 @@ export default function INV01() {
           {searchTerm && (
             <div className="mt-3 text-sm text-gray-600">
               {filteredMaterials.length} material(es) encontrado(s)
+            </div>
+          )}
+
+          {/* Selection info */}
+          {selectedMaterial && (
+            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-900">
+                <strong>Material seleccionado:</strong> {materials.find(m => m.documentId === selectedMaterial)?.codigo} - {materials.find(m => m.documentId === selectedMaterial)?.descripcion}
+              </p>
             </div>
           )}
         </div>
@@ -291,17 +303,8 @@ export default function INV01() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left">
-                      <button
-                        onClick={selectAll}
-                        className="hover:bg-gray-200 rounded p-1 transition-colors"
-                      >
-                        {selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0 ? (
-                          <CheckSquare size={20} className="text-blue-600" />
-                        ) : (
-                          <Square size={20} className="text-gray-400" />
-                        )}
-                      </button>
+                    <th className="px-4 py-3 text-left w-12">
+                      {/* Removed select all checkbox */}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Código Interno
@@ -322,7 +325,7 @@ export default function INV01() {
                     <tr
                       key={material.documentId}
                       className={`hover:bg-gray-50 transition-colors ${
-                        selectedMaterials.has(material.documentId) ? 'bg-blue-50' : ''
+                        selectedMaterial === material.documentId ? 'bg-blue-50' : ''
                       }`}
                     >
                       <td className="px-4 py-3">
@@ -330,7 +333,7 @@ export default function INV01() {
                           onClick={() => toggleSelection(material.documentId)}
                           className="hover:bg-gray-200 rounded p-1 transition-colors"
                         >
-                          {selectedMaterials.has(material.documentId) ? (
+                          {selectedMaterial === material.documentId ? (
                             <CheckSquare size={20} className="text-blue-600" />
                           ) : (
                             <Square size={20} className="text-gray-400" />
@@ -358,11 +361,18 @@ export default function INV01() {
         </div>
       </div>
 
-      {/* Modal */}
-      {modalOpen && selectedMaterial && (
+      {/* Detail Modal */}
+      {modalOpen && selectedMaterialData && (
         <INV01Modal
-          material={selectedMaterial}
+          material={selectedMaterialData}
           onClose={handleCloseModal}
+        />
+      )}
+
+      {/* Report Modal */}
+      {reportModalOpen && (
+        <INV01Report
+          onClose={handleCloseReportModal}
         />
       )}
     </div>

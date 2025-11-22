@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Package, Save, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Package, Save, AlertCircle } from "lucide-react";
 import { useAuth } from "../auth-context";
 import { doc, setDoc, serverTimestamp, collection, getDocs, query, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
+import { GlobalToast } from "../Globaltoast";
 
 // LABEL MAPPINGS
 const ZONA_LABELS: Record<string, string> = {
@@ -155,36 +156,6 @@ const FormField = ({
   );
 };
 
-const Toast = ({ 
-  message, 
-  type, 
-  onClose 
-}: { 
-  message: string; 
-  type: 'success' | 'error'; 
-  onClose: () => void;
-}) => (
-  <div className="fixed top-4 right-4 z-50 animate-slide-in">
-    <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
-      type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-    }`}>
-      {type === 'success' ? (
-        <CheckCircle className="text-green-600" size={20} />
-      ) : (
-        <AlertCircle className="text-red-600" size={20} />
-      )}
-      <span className={`font-medium ${
-        type === 'success' ? 'text-green-800' : 'text-red-800'
-      }`}>
-        {message}
-      </span>
-      <button onClick={onClose} className="ml-2 hover:bg-gray-200 rounded p-1 transition-colors">
-        <X size={16} />
-      </button>
-    </div>
-  </div>
-);
-
 export default function CMAT01Module() {
   const { user } = useAuth();
 
@@ -277,11 +248,11 @@ export default function CMAT01Module() {
   const validateForm = useCallback((data: MaterialForm): ValidationResult => {
     const errors: Partial<Record<keyof MaterialForm, string>> = {};
     if (!data.zona) errors.zona = 'La zona es requerida';
-    if (!data.categoria) errors.categoria = 'La categoría es requerida';
-    if (!data.subcategoria) errors.subcategoria = 'La subcategoría es requerida';
+    if (!data.categoria) errors.categoria = 'La categorí­a es requerida';
+    if (!data.subcategoria) errors.subcategoria = 'La subcategorí­a es requerida';
     if (!data.codigo.trim()) errors.codigo = 'El código es requerido';
     if (!data.descripcion.trim()) errors.descripcion = 'La descripción es requerida';
-    if (!data.stockMinimo.trim()) errors.stockMinimo = 'El stock mínimo es requerido';
+    if (!data.stockMinimo.trim()) errors.stockMinimo = 'El stock mí­nimo es requerido';
     if (!data.unidadDeMedida.trim()) errors.unidadDeMedida = 'La unidad de medida es requerida';
     return { isValid: Object.keys(errors).length === 0, errors };
   }, []);
@@ -388,7 +359,7 @@ export default function CMAT01Module() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <GlobalToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
@@ -396,7 +367,6 @@ export default function CMAT01Module() {
             <Package size={32} className="text-purple-600" />
             <h1 className="text-3xl font-bold text-gray-900">Creación de Materiales</h1>
           </div>
-          <p className="text-gray-600">Registrar nuevos materiales en el catálogo</p>
         </div>
 
         <div className="space-y-6">
@@ -419,7 +389,7 @@ export default function CMAT01Module() {
               />
 
               <DropdownField
-                label="Categoría"
+                label="Categorí­a"
                 value={form.categoria}
                 onChange={updateDropdownField('categoria')}
                 options={defaults?.category || []}
@@ -429,7 +399,7 @@ export default function CMAT01Module() {
               />
 
               <DropdownField
-                label="Subcategoría"
+                label="Subcategorí­a"
                 value={form.subcategoria}
                 onChange={updateDropdownField('subcategoria')}
                 options={availableSubcategories}
@@ -464,7 +434,7 @@ export default function CMAT01Module() {
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
-                  label="Stock Mínimo"
+                  label="Stock Mí­nimo"
                   value={form.stockMinimo}
                   onChange={updateField('stockMinimo')}
                   error={validation.errors.stockMinimo}
@@ -478,7 +448,7 @@ export default function CMAT01Module() {
                   onChange={updateField('unidadDeMedida')}
                   error={validation.errors.unidadDeMedida}
                   disabled={saving}
-                  placeholder="ej. unidad, kg, litro"
+                  placeholder="u, kg, l"
                 />
               </div>
 
