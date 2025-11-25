@@ -393,8 +393,22 @@ export default function SMAT01Orden() {
       return;
     }
     
+    // When a location is selected, auto-fill all materials with their max quantities
     setStorageAssignments(prev => 
-      prev.map(a => a.id === id ? { ...a, storageLocation: location } : a)
+      prev.map(a => {
+        if (a.id === id) {
+          // If location is being set (not cleared), populate materials with max quantities
+          if (location !== '') {
+            const materials: Record<string, number> = {};
+            materialDetails.forEach(material => {
+              materials[material.isoCode] = material.quantity;
+            });
+            return { ...a, storageLocation: location, materials };
+          }
+          return { ...a, storageLocation: location };
+        }
+        return a;
+      })
     );
     
     // Clear error for this assignment
@@ -405,7 +419,7 @@ export default function SMAT01Orden() {
         return newErrors;
       });
     }
-  }, [errors, storageAssignments]);
+  }, [errors, storageAssignments, materialDetails]);
 
   // Get available storage locations for a specific assignment (excluding already used ones)
   const getAvailableLocations = useCallback((currentAssignmentId: string): string[] => {
@@ -423,13 +437,13 @@ export default function SMAT01Orden() {
     isoCode: string, 
     quantity: string
   ) => {
-    const numQuantity = parseFloat(quantity);
+    const numQuantity = parseInt(quantity, 10);
     
     setStorageAssignments(prev => 
       prev.map(a => {
         if (a.id === assignmentId) {
           const newMaterials = { ...a.materials };
-          if (quantity === '' || numQuantity === 0) {
+          if (quantity === '' || isNaN(numQuantity) || numQuantity === 0) {
             delete newMaterials[isoCode];
           } else {
             newMaterials[isoCode] = numQuantity;
@@ -832,11 +846,11 @@ export default function SMAT01Orden() {
                             <span className="text-xs text-gray-600">Max: {material.quantity}</span>
                             <input
                               type="number"
-                              value={assignment.materials[material.isoCode] || ''}
+                              value={assignment.materials[material.isoCode] ?? ''}
                               onChange={(e) => updateMaterialQuantity(assignment.id, material.isoCode, e.target.value)}
                               min="0"
                               max={material.quantity}
-                              step="0.01"
+                              step="1"
                               placeholder="0"
                               disabled={saving}
                               className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500"

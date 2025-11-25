@@ -121,12 +121,14 @@ const ConfirmationModal = ({
   action,
   count,
   onConfirm,
-  onCancel
+  onCancel,
+  isProcessing
 }: {
   action: 'accept' | 'deny';
   count: number;
   onConfirm: () => void;
   onCancel: () => void;
+  isProcessing: boolean;
 }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -151,19 +153,28 @@ const ConfirmationModal = ({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+            disabled={isProcessing}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-white rounded-md transition-colors ${
+            disabled={isProcessing}
+            className={`px-4 py-2 text-white rounded-md transition-colors flex items-center gap-2 min-w-[100px] justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
               action === 'accept'
                 ? 'bg-green-600 hover:bg-green-700'
                 : 'bg-red-600 hover:bg-red-700'
             }`}
           >
-            {action === 'accept' ? 'Aceptar' : 'Eliminar'}
+            {isProcessing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Procesando...</span>
+              </>
+            ) : (
+              <span>{action === 'accept' ? 'Aceptar' : 'Eliminar'}</span>
+            )}
           </button>
         </div>
       </div>
@@ -894,6 +905,7 @@ export default function AEMAT01Module() {
             count={selectedPending.size}
             onConfirm={showConfirmation === 'accept' ? handleAccept : handleDeny}
             onCancel={() => setShowConfirmation(null)}
+            isProcessing={processing}
           />
         )}
       </div>
