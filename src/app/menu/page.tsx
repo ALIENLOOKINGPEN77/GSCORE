@@ -539,7 +539,7 @@ export default function MenuPage() {
         {/* Sidebar - Fixed position */}
         <aside className="w-72 h-full bg-white flex flex-col border-r border-gray-200 shadow-sm shrink-0">
           {/* Logo */}
-          <div className="p-6 border-b border-gray-200 shrink-0">
+          <div className="p-6 border-b border-gray-200 shrink-0 flex justify-center items-center">
             <Image
               src="/logo.png"
               alt="ERP System Logo"
