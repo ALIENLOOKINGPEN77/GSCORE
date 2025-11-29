@@ -82,7 +82,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
         <div style="width: 80px; height: 40px; display: flex; align-items: center;">
           <img 
-            src="/logo.png" 
+            src="/logoConcretos.png"  
             alt="GS CONCRETOS Logo" 
             style="max-width: 120px; max-height: 60px; width: auto; height: auto; object-fit: contain;"
           />
@@ -221,7 +221,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
-      const targetScale = 2;
+      const targetScale = 1.5;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {
@@ -247,7 +247,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
         pdf.addPage();
       }
 
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgData = canvas.toDataURL('image/jpeg', 0.70);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       

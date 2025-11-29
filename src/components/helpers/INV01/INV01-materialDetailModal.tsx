@@ -13,7 +13,7 @@ import {
   Timestamp
 } from "firebase/firestore";
 import { db } from "../../../lib/firebase/client";
-import INV01List from "./INV01-list";
+import INV01List from "./INV01-materialMoveList";
 
 // ============================================================================
 // TYPE DEFINITIONS

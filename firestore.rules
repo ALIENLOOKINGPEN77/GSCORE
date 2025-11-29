@@ -1,0 +1,584 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // SCOM01 Collection Rules - Fuel Loading Data Management
+    match /SCOM01/{dateDoc} {
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && (hasAppAccess(request.auth.token.email, 'SCOM01') || hasModuleAccess(request.auth.token.email, 'ASCOM01'))
+        && request.resource.data.keys().hasAll(['metadata'])
+        && (
+          (request.resource.data.keys().hasAll(['docData', 'metadata'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial']))
+          ||
+          (request.resource.data.keys().hasAll(['CargasFlota', 'metadata'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota))
+          ||
+          (request.resource.data.keys().hasAll(['docData', 'CargasFlota', 'metadata'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota))
+          ||
+          (request.resource.data.keys().hasAll(['CargasExternas', 'metadata'])
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.keys().hasAll(['docData', 'CargasExternas', 'metadata'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial'])
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.keys().hasAll(['CargasFlota', 'CargasExternas', 'metadata'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota)
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.keys().hasAll(['docData', 'CargasFlota', 'CargasExternas', 'metadata'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota)
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+        )
+        && request.resource.data.metadata.keys().hasAll(['createdAt', 'userId', 'userEmail'])
+        && request.resource.data.metadata.userId == request.auth.uid
+        && request.resource.data.metadata.userEmail == request.auth.token.email
+        && request.resource.data.metadata.createdAt is timestamp;
+      
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (hasAppAccess(request.auth.token.email, 'SCOM01') || hasModuleAccess(request.auth.token.email, 'ASCOM01'));
+      
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && (hasAppAccess(request.auth.token.email, 'SCOM01') || hasModuleAccess(request.auth.token.email, 'ASCOM01'))
+        && request.resource.data.metadata == resource.data.metadata
+        && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['docData'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial']))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['CargasFlota'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['CargasFlota'])
+           && !('CargasFlota' in resource.data)
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['docData'])
+           && !('docData' in resource.data)
+           && request.resource.data.docData.keys().hasAll(['Tinicial']))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['docData', 'CargasFlota'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['CargasExternas'])
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['CargasExternas'])
+           && !('CargasExternas' in resource.data)
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['docData', 'CargasExternas'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial'])
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['CargasFlota', 'CargasExternas'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota)
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['docData', 'CargasFlota', 'CargasExternas'])
+           && request.resource.data.docData.keys().hasAll(['Tinicial'])
+           && validateCargasFlotaStructure(request.resource.data.CargasFlota)
+           && validateCargasExternasStructure(request.resource.data.CargasExternas))
+        );
+      
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && (
+          resource.data.metadata.userId == request.auth.uid
+          ||
+          hasAppAccess(request.auth.token.email, 'ATCOM01')
+        );
+    }
+
+    // ECOM01 Collection Rules
+    match /ECOM01/{docId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['status', 'signatureToken', 'signature', 'createdBy', 'createdAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.signature == null
+        && request.resource.data.createdBy == request.auth.uid;
+        
+      allow read: if request.auth != null;
+      
+      allow update: if request.auth != null
+        && (
+          (resource.data.status == 'pending'
+           && request.resource.data.status == 'signed'
+           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signature', 'status', 'signedAt'])
+           && request.resource.data.signature != null
+           && request.resource.data.signedAt != null)
+          ||
+          (request.auth.uid == resource.data.createdBy
+           && resource.data.status == 'signed'
+           && request.resource.data.status == 'completed'
+           && request.resource.data.diff(resource.data).affectedKeys().hasAll(['status', 'completedAt'])
+           && request.resource.data.diff(resource.data).affectedKeys().hasAll([
+             'fecha', 'proveedorExterno', 'nroChapa', 'chofer',
+             'factura', 'cantidadFacturadaLts', 'horaDescarga', 'cantidadRecepcionadaLts'
+           ]))
+        );
+        
+      allow delete: if request.auth != null
+        && (
+          (request.auth.uid == resource.data.createdBy && resource.data.status == 'pending')
+          ||
+          (resource.data.status == 'completed' && hasModuleAccess(request.auth.token.email, 'ATCOM01'))
+        );
+    }
+
+    // CMAT01 Collection Rules
+    match /CMAT01/{docId} {
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'CMAT01')
+        && request.resource.data.keys().hasAll([
+          'documentId', 'zona', 'categoria', 'subcategoria', 'categoryNumber',
+          'codigo', 'descripcion', 'stockMinimo', 'unidadDeMedida', 
+          'fechaDeCreacion', 'marca', 'proveedor', 'createdAt', 'createdBy', 'createdByEmail'
+        ])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByEmail == request.auth.token.email
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.documentId == docId;
+      
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'CMAT01') 
+            || hasModuleAccess(request.auth.token.email, 'EMAT01')
+            || hasModuleAccess(request.auth.token.email, 'AEMAT01')
+            || hasModuleAccess(request.auth.token.email, 'SMAT01')
+            || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+            || hasModuleAccess(request.auth.token.email, 'FORD01'));
+      
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'CMAT01')
+        && request.resource.data.documentId == resource.data.documentId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdByEmail == resource.data.createdByEmail
+        && request.resource.data.createdAt == resource.data.createdAt;
+      
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01');
+    }
+
+    // EMAT01 Collection Rules
+    match /EMAT01/{entryId} {
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'EMAT01')
+        && request.resource.data.keys().hasAll([
+          'entryId', 'materialCode', 'storageLocation', 'entryType',
+          'entryDate', 'quantity', 'reason', 'state', 'createdAt', 'createdBy', 'createdByEmail'
+        ])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByEmail == request.auth.token.email
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.entryId == entryId
+        && request.resource.data.state == false;
+      
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'EMAT01') 
+            || hasModuleAccess(request.auth.token.email, 'AEMAT01'));
+      
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'EMAT01') 
+            || hasModuleAccess(request.auth.token.email, 'AEMAT01'))
+        && request.resource.data.entryId == resource.data.entryId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdByEmail == resource.data.createdByEmail
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+           && request.resource.data.state == true
+           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'acceptedAt'])
+           && request.resource.data.acceptedAt is timestamp)
+          ||
+          (hasModuleAccess(request.auth.token.email, 'EMAT01')
+           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['state', 'acceptedAt']))
+        );
+      
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+            || hasModuleAccess(request.auth.token.email, 'ATCOM01'));
+    }
+    
+    // CORD01 Collection Rules - UPDATED TO INCLUDE FORD01 AND ASMAT01
+    match /CORD01/{orderId} {
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'CORD01')
+        && request.resource.data.orderId == orderId
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByEmail == request.auth.token.email
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.orderType in ['General', 'Taller']
+        && request.resource.data.state == false
+        && request.resource.data.stateSig == false
+        && request.resource.data.stateUsed == false
+        && request.resource.data.stateAudit == false
+        && request.resource.data.stateUsedAudit == false
+        && (
+          (request.resource.data.orderType == 'General'
+           && request.resource.data.keys().hasAll([
+             'orderId', 'orderType', 'type', 'equipment', 'issueDate',
+             'executionDate', 'assignedTechnicians', 'description', 'workPerformed',
+             'verifiedBy', 'componentsUsed', 'state', 'stateSig', 'stateUsed', 'stateAudit','stateUsedAudit',
+             'createdAt', 'createdBy', 'createdByEmail'
+           ])
+           && request.resource.data.type in ['Mecanico', 'Electrico', 'Preventivo', 'Correctivo', 'Otro']
+           && request.resource.data.equipment is string
+           && request.resource.data.issueDate is string
+           && request.resource.data.executionDate is string
+           && request.resource.data.assignedTechnicians is list
+           && request.resource.data.description is string
+           && request.resource.data.workPerformed is string
+           && request.resource.data.verifiedBy is string
+           && request.resource.data.componentsUsed is map)
+          ||
+          (request.resource.data.orderType == 'Taller'
+           && request.resource.data.keys().hasAll([
+             'orderId', 'orderType', 'vehicleType', 'mobileUnit', 'driver', 'mileage', 'hourmeter',
+             'issueDate', 'executionDate', 'description', 'observations',
+             'signatureConformity', 'verifiedBy', 'componentsUsed', 'state', 'stateSig', 'stateUsed', 'stateAudit','stateUsedAudit',
+             'createdAt', 'createdBy', 'createdByEmail'
+           ])
+           && request.resource.data.vehicleType in ['interno', 'externo']
+           && request.resource.data.mobileUnit is string
+           && request.resource.data.driver is string
+           && request.resource.data.mileage is number
+           && request.resource.data.hourmeter is number
+           && request.resource.data.issueDate is string
+           && request.resource.data.executionDate is string
+           && request.resource.data.description is string
+           && request.resource.data.observations is string
+           && request.resource.data.signatureConformity is string
+           && request.resource.data.verifiedBy is string
+           && request.resource.data.componentsUsed is map)
+        );
+      
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'CORD01')
+            || hasModuleAccess(request.auth.token.email, 'SMAT01')
+            || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+            || hasModuleAccess(request.auth.token.email, 'FORD01'));
+      
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && (
+          (hasModuleAccess(request.auth.token.email, 'CORD01')
+           && request.resource.data.orderId == resource.data.orderId
+           && request.resource.data.createdBy == resource.data.createdBy
+           && request.resource.data.createdByEmail == resource.data.createdByEmail
+           && request.resource.data.createdAt == resource.data.createdAt)
+          ||
+          (hasModuleAccess(request.auth.token.email, 'SMAT01')
+           && request.resource.data.orderId == resource.data.orderId
+           && request.resource.data.createdBy == resource.data.createdBy
+           && request.resource.data.createdByEmail == resource.data.createdByEmail
+           && request.resource.data.createdAt == resource.data.createdAt
+           && request.resource.data.orderType == resource.data.orderType
+           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stateUsed'])
+           && request.resource.data.stateUsed == true)
+          ||
+          (hasModuleAccess(request.auth.token.email, 'ASMAT01')
+           && request.resource.data.orderId == resource.data.orderId
+           && request.resource.data.createdBy == resource.data.createdBy
+           && request.resource.data.createdByEmail == resource.data.createdByEmail
+           && request.resource.data.createdAt == resource.data.createdAt
+           && request.resource.data.orderType == resource.data.orderType
+           && (
+             (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stateUsedAudit'])
+              && request.resource.data.stateUsedAudit == true)
+             ||
+             (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stateUsed'])
+              && request.resource.data.stateUsed == false)
+           ))
+          ||
+          (hasModuleAccess(request.auth.token.email, 'FORD01')
+           && request.resource.data.orderId == resource.data.orderId
+           && request.resource.data.createdBy == resource.data.createdBy
+           && request.resource.data.createdByEmail == resource.data.createdByEmail
+           && request.resource.data.createdAt == resource.data.createdAt
+           && request.resource.data.orderType == resource.data.orderType
+           && (
+             (resource.data.orderType == 'General'
+              && request.resource.data.state == true
+              && resource.data.state == false
+              && request.resource.data.stateSig == true
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'stateSig', 'workPerformed', 'verifiedBy', 'componentsUsed'])
+              && request.resource.data.workPerformed is string
+              && request.resource.data.verifiedBy is string
+              && request.resource.data.componentsUsed is map)
+             ||
+             (resource.data.orderType == 'Taller'
+              && request.resource.data.state == true
+              && resource.data.state == false
+              && request.resource.data.stateSig == false
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'stateSig', 'verifiedBy', 'componentsUsed'])
+              && request.resource.data.verifiedBy is string
+              && request.resource.data.componentsUsed is map
+              && request.resource.data.signatureConformity == resource.data.signatureConformity)
+           ))
+        );
+      
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01');
+    }
+
+    // SMAT01 Collection Rules - Material Exit Management
+    match /SMAT01/{entryId} {
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'SMAT01')
+        && request.resource.data.keys().hasAll([
+          'entryId', 'createdAt', 'createdBy', 'createdByEmail',
+          'entryDate', 'entryType', 'quantity',
+          'reason', 'state', 'storageLocation'
+        ])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByEmail == request.auth.token.email
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.entryId == entryId
+        && request.resource.data.entryType in ['orden', 'particular', 'ajuste']
+        && request.resource.data.state == false
+        && request.resource.data.quantity is map
+        && request.resource.data.entryDate is string
+        && request.resource.data.storageLocation is string
+        && request.resource.data.reason is string;
+      
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'SMAT01') 
+            || hasModuleAccess(request.auth.token.email, 'ASMAT01'));
+      
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'SMAT01') 
+            || hasModuleAccess(request.auth.token.email, 'ASMAT01'))
+        && request.resource.data.entryId == resource.data.entryId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdByEmail == resource.data.createdByEmail
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (hasModuleAccess(request.auth.token.email, 'ASMAT01')
+           && request.resource.data.state == true
+           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'acceptedAt'])
+           && request.resource.data.acceptedAt is timestamp)
+          ||
+          (hasModuleAccess(request.auth.token.email, 'SMAT01')
+           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['state', 'acceptedAt']))
+        );
+      
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'ASMAT01')
+            || hasModuleAccess(request.auth.token.email, 'ATCOM01'));
+    }
+    
+    // INV01 Collection Rules
+    match /INV01/{materialCode} {
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+            || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+            || hasModuleAccess(request.auth.token.email, 'INV01'));
+      
+      allow create, update: if request.auth != null
+        && request.auth.token.email != null
+        && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+            || hasModuleAccess(request.auth.token.email, 'ASMAT01'));
+      
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01');
+      
+      match /moves/{moveId} {
+        allow read: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+              || hasModuleAccess(request.auth.token.email, 'INV01'));
+        
+        allow create: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01'))
+          && request.resource.data.keys().hasAll([
+            'materialCode', 'qty', 'effectiveAt', 'recordedAt',
+            'storageLocation', 'source', 'sourceId', 'deleted'
+          ])
+          && request.resource.data.materialCode is string
+          && request.resource.data.qty is number
+          && request.resource.data.effectiveAt is timestamp
+          && request.resource.data.recordedAt is timestamp
+          && request.resource.data.storageLocation is string
+          && request.resource.data.source is string
+          && request.resource.data.sourceId is string
+          && request.resource.data.deleted == false;
+        
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      match /snapshots/{snapshotDate} {
+        allow read: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+              || hasModuleAccess(request.auth.token.email, 'INV01'));
+        
+        allow create: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01'))
+          && request.resource.data.keys().hasAll([
+            'openingQtyByLocation', 'closingQtyByLocation', 'builtAt'
+          ])
+          && request.resource.data.openingQtyByLocation is map
+          && request.resource.data.closingQtyByLocation is map
+          && request.resource.data.builtAt is timestamp;
+        
+        allow update: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01'))
+          && request.resource.data.openingQtyByLocation == resource.data.openingQtyByLocation
+          && request.resource.data.builtAt == resource.data.builtAt;
+        
+        allow delete: if request.auth != null
+          && request.auth.token.email != null
+          && hasModuleAccess(request.auth.token.email, 'ATCOM01');
+      }
+      
+      match /entries/{entryId} {
+        allow read: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+              || hasModuleAccess(request.auth.token.email, 'INV01'));
+        
+        allow create: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01'))
+          && request.resource.data.keys().hasAll([
+            'qty', 'effectiveAt', 'recordedAt', 'storageLocation', 'sourceId'
+          ])
+          && request.resource.data.qty is number
+          && request.resource.data.effectiveAt is timestamp
+          && request.resource.data.recordedAt is timestamp
+          && request.resource.data.storageLocation is string
+          && request.resource.data.sourceId is string;
+        
+        allow update, delete: if false;
+      }
+      
+      match /exits/{exitId} {
+        allow read: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01')
+              || hasModuleAccess(request.auth.token.email, 'INV01'));
+        
+        allow create: if request.auth != null
+          && request.auth.token.email != null
+          && (hasModuleAccess(request.auth.token.email, 'AEMAT01')
+              || hasModuleAccess(request.auth.token.email, 'ASMAT01'))
+          && request.resource.data.keys().hasAll([
+            'qty', 'effectiveAt', 'recordedAt', 'storageLocation', 'sourceId'
+          ])
+          && request.resource.data.qty is number
+          && request.resource.data.effectiveAt is timestamp
+          && request.resource.data.recordedAt is timestamp
+          && request.resource.data.storageLocation is string
+          && request.resource.data.sourceId is string;
+        
+        allow update, delete: if false;
+      }
+    }
+    
+    // DELETED collection rules
+    match /DELETED/{document=**} {
+      allow read: if request.auth != null 
+        && request.auth.uid != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01');
+      
+      allow create: if request.auth != null 
+        && request.auth.uid != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01')
+        && request.resource.data.deletedBy == request.auth.uid
+        && request.resource.data.deletedAt is timestamp;
+      
+      allow update, delete: if false;
+    }
+    
+    match /DELETED/ECOM01/files/{fileId} {
+      allow read: if request.auth != null 
+        && request.auth.uid != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01');
+      
+      allow create: if request.auth != null 
+        && request.auth.uid != null
+        && hasModuleAccess(request.auth.token.email, 'ATCOM01')
+        && request.resource.data.deletedBy == request.auth.uid
+        && request.resource.data.deletedAt is timestamp
+        && request.resource.data.keys().hasAll(['factura', 'createdBy', 'fecha', 'proveedorExterno', 'originalId'])
+        && request.resource.data.factura is string
+        && request.resource.data.createdBy is string
+        && request.resource.data.fecha is string
+        && request.resource.data.proveedorExterno is string
+        && request.resource.data.originalId is string;
+      
+      allow update, delete: if false;
+    }
+    
+    match /defaults/{document} {
+      allow read: if request.auth != null;
+    }
+    
+    match /defaults/modules {
+      allow read: if request.auth != null;
+    }
+    
+    match /access/modules_by_user {
+      allow read: if request.auth != null;
+    }
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function validateCargasFlotaStructure(cargasFlota) {
+      return cargasFlota is map && cargasFlota.size() >= 0;
+    }
+    
+    function validateCargasExternasStructure(cargasExternas) {
+      return cargasExternas is map && cargasExternas.size() >= 0;
+    }
+    
+    function hasModuleAccess(userEmail, moduleCode) {
+      return userEmail != null 
+        && userEmail in get(/databases/$(database)/documents/defaults/users_parameters).data
+        && moduleCode in get(/databases/$(database)/documents/defaults/users_parameters).data[userEmail].module_access;
+    }
+    
+    function hasAppAccess(userEmail, appCode) {
+      return userEmail != null 
+        && userEmail in get(/databases/$(database)/documents/defaults/users_parameters).data
+        && appCode in get(/databases/$(database)/documents/defaults/users_parameters).data[userEmail].app_access;
+    }
+  }
+}

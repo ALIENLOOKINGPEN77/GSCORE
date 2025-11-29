@@ -11,8 +11,8 @@ import {
   getDoc
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
-import INV01Modal from "../helpers/INV01/INV01-modal";
-import INV01Report from "../helpers/INV01/INV01-report";
+import INV01Modal from "../helpers/INV01/INV01-materialDetailModal";
+import INV01CalendarModal from "../helpers/INV01/INV01-calendarModal";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -107,7 +107,6 @@ export default function INV01() {
       
       const loadedMaterials: Material[] = [];
       snapshot.forEach((doc) => {
-        // Skip the 'default' document
         if (doc.id === 'default') return;
         
         const data = doc.data();
@@ -125,7 +124,6 @@ export default function INV01() {
         });
       });
 
-      // Sort by codigo
       loadedMaterials.sort((a, b) => a.codigo.localeCompare(b.codigo));
       setMaterials(loadedMaterials);
     } catch (error) {
@@ -135,7 +133,6 @@ export default function INV01() {
     }
   };
 
-  // Filter materials based on search
   const filteredMaterials = useMemo(() => {
     if (!searchTerm.trim()) {
       return materials;
@@ -157,7 +154,6 @@ export default function INV01() {
     });
   }, [materials, searchTerm, searchType]);
 
-  // Selection handler - now only allows single selection
   const toggleSelection = useCallback((documentId: string) => {
     setSelectedMaterial(prev => prev === documentId ? null : documentId);
   }, []);
@@ -188,18 +184,14 @@ export default function INV01() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <Package size={32} className="text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Inventario</h1>
           </div>
-     
         </div>
 
-        {/* Search Section - Sticky */}
         <div className="sticky top-0 z-10 bg-white border rounded-lg shadow-sm mb-6 p-6">
-          {/* Search Type Toggle Buttons */}
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setSearchType('descripcion')}
@@ -233,7 +225,6 @@ export default function INV01() {
             </button>
           </div>
 
-          {/* Search Input */}
           <div className="flex items-center gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -246,7 +237,6 @@ export default function INV01() {
               />
             </div>
 
-            {/* Reporte Button */}
             <button
               onClick={handleReporte}
               className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-all font-medium flex items-center gap-2"
@@ -255,7 +245,6 @@ export default function INV01() {
               Reporte
             </button>
 
-            {/* View Details Button */}
             <button
               onClick={handleOpenModal}
               disabled={!selectedMaterial}
@@ -266,14 +255,12 @@ export default function INV01() {
             </button>
           </div>
 
-          {/* Results count */}
           {searchTerm && (
             <div className="mt-3 text-sm text-gray-600">
               {filteredMaterials.length} material(es) encontrado(s)
             </div>
           )}
 
-          {/* Selection info */}
           {selectedMaterial && (
             <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm text-blue-900">
@@ -283,7 +270,6 @@ export default function INV01() {
           )}
         </div>
 
-        {/* Materials Table */}
         <div className="bg-white border rounded-lg shadow-sm">
           {loading ? (
             <div className="p-12 text-center">
@@ -303,9 +289,7 @@ export default function INV01() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left w-12">
-                      {/* Removed select all checkbox */}
-                    </th>
+                    <th className="px-4 py-3 text-left w-12"></th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Código Interno
                     </th>
@@ -361,7 +345,6 @@ export default function INV01() {
         </div>
       </div>
 
-      {/* Detail Modal */}
       {modalOpen && selectedMaterialData && (
         <INV01Modal
           material={selectedMaterialData}
@@ -369,9 +352,8 @@ export default function INV01() {
         />
       )}
 
-      {/* Report Modal */}
       {reportModalOpen && (
-        <INV01Report
+        <INV01CalendarModal
           onClose={handleCloseReportModal}
         />
       )}

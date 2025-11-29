@@ -11,7 +11,7 @@ import {
   Timestamp
 } from "firebase/firestore";
 import { db } from "../../../lib/firebase/client";
-import INV01MovementDetail from "./INV01-detail";
+import INV01MovementDetail from "./INV01-materialMovDetail";
 
 // ============================================================================
 // TYPE DEFINITIONS

@@ -1,9 +1,15 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 
+// Helper function to check if movement matches "Taller" filter
+// Includes both "Taller" and "Particular" order types
+const isTallerOrParticular = (orderType) => {
+  return orderType === 'Taller' || orderType === 'Particular';
+};
+
 /**
  * Generates a PDF report for inventory movements grouped by equipment/mobile unit (cost centers)
- * Only includes SALIDAS (exits) with orderType === "Taller"
+ * Includes SALIDAS (exits) with orderType === "Taller" OR orderType === "Particular"
  * @param {Array} movements - Array of movement objects with material info
  * @param {string} startDate - Start date in DD-MM-YYYY format
  * @param {string} endDate - End date in DD-MM-YYYY format
@@ -30,14 +36,14 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
       });
     };
 
-    // Filter only SALIDAS (exits) with orderType === "Taller"
+    // Filter only SALIDAS (exits) with orderType === "Taller" OR "Particular"
     const salidas = movements.filter(m => 
       m.qty < 0 && 
-      m.orderType === 'Taller'
+      isTallerOrParticular(m.orderType)
     );
 
     if (salidas.length === 0) {
-      throw new Error('No hay salidas de tipo "Taller" en el período seleccionado');
+      throw new Error('No hay salidas de tipo "Taller" o "Particular" en el período seleccionado');
     }
 
     // Group by equipment/mobile unit
@@ -58,16 +64,17 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
         <div style="width: 80px; height: 40px; display: flex; align-items: center;">
           <img 
-            src="/logo.png" 
+            src="/logoConcretos.png"  
             alt="GS CONCRETOS Logo" 
             style="max-width: 120px; max-height: 60px; width: auto; height: auto; object-fit: contain;"
           />
         </div>
         <div style="text-align: center; flex: 1;">
-          <h1 style="margin: 0; font-size: 16px; font-weight: bold;">REPORTE DE MOVIMIENTOS DE INVENTARIO - TALLER</h1>
-          <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Período: ${displayStartDate} - ${displayEndDate}</p>
+          <h1 style="margin: 0; font-size: 16px; font-weight: bold; color: #000;">REPORTE DE MOVIMIENTOS DE INVENTARIO - TALLER</h1>
+          <p style="margin: 5px 0 0 0; font-size: 11px; color: #000;">Período: ${displayStartDate} - ${displayEndDate}</p>
+          <p style="margin: 2px 0 0 0; font-size: 9px; color: #666;">Incluye: Órdenes de Taller y Salidas Particulares</p>
         </div>
-        <div style="text-align: right; font-size: 10px; width: 80px;">
+        <div style="text-align: right; font-size: 10px; width: 80px; color: #000;">
           <div>FL-TAL-99 R</div>
           <div>Rev. 00</div>
         </div>
@@ -77,13 +84,11 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
     // Helper function to generate table header
     const generateTableHeader = () => `
       <thead>
-        <tr style="background-color: #f0f0f0;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">FECHA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">CÓDIGO<br/>MATERIAL</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 160px;">DESCRIPCIÓN<br/>MATERIAL</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">CANTIDAD</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">UBICACIÓN</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px;">ID<br/>OPERACIÓN</th>
+        <tr style="background-color: #ffffff;">
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 250px; color: #000;">DESCRIPCIÓN</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">CANTIDAD</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px; color: #000;">UNIDAD<br/>MEDIDA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px; color: #000;">UBICACIÓN</th>
         </tr>
       </thead>
     `;
@@ -93,12 +98,10 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
       return movementsList.map(movement => {
         return `
           <tr style="background-color: #ffffff;">
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${formatDate(movement.effectiveAt)}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px; font-weight: bold; font-family: monospace;">${movement.materialCode || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; font-size: 7px;">${movement.materialDescription || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 9px; font-weight: bold;">${movement.qty}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 7px;">${movement.storageLocation}</td>
-            <td style="border: 1px solid #000; padding: 5px; font-size: 6px; text-align: center; font-family: monospace;">${movement.sourceId || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 7px; color: #000;">${movement.materialDescription || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 9px; color: #000;">${movement.qty}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px; color: #000;">${movement.unidadDeMedida || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 7px; color: #000;">${movement.storageLocation}</td>
           </tr>
         `;
       }).join('');
@@ -176,7 +179,7 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
         ">
           ${generateHeader()}
           ${htmlContent}
-          <div style="margin-top: 40px; font-size: 9px; color: #666; display: flex; justify-content: space-between;">
+          <div style="margin-top: 40px; font-size: 9px; color: #000; display: flex; justify-content: space-between;">
             <div>Generado el: ${new Date().toLocaleString('es-ES')}</div>
             <div>Página ${pageNum} de ${totalPages}</div>
           </div>
@@ -187,7 +190,7 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
-      const targetScale = 2;
+      const targetScale = 1.5;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {
@@ -214,7 +217,7 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
       }
       isFirstPage = false;
 
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgData = canvas.toDataURL('image/jpeg', 0.70);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       

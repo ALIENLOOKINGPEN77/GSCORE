@@ -541,6 +541,7 @@ export default function SMAT01Orden() {
 
   // Save entries to Firebase
   const handleSave = useCallback(async () => {
+    if (saving) return; // Add this line
     const validation = validateForm();
     
     if (!validation.isValid) {

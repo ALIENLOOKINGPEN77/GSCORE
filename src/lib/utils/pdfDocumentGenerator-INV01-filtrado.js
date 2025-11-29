@@ -1,14 +1,33 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 
+// Helper function to check if movement matches "Taller" filter
+// Includes both "Taller" and "Particular" order types
+const isTallerOrParticular = (orderType) => {
+  return orderType === 'Taller' || orderType === 'Particular';
+};
+
 /**
- * Generates a PDF report for inventory movements across all materials
- * Separate tables for entries and exits
- * @param {Array} movements - Array of movement objects with material info
+ * Generates a filtered PDF report for inventory movements
+ * @param {Array} movements - Array of movement objects
  * @param {string} startDate - Start date in DD-MM-YYYY format
  * @param {string} endDate - End date in DD-MM-YYYY format
+ * @param {boolean} includeEntradas - Include entries (qty > 0)
+ * @param {boolean} includeSalidas - Include exits (qty < 0)
+ * @param {boolean} soloTaller - Filter only "Taller" or "Particular" order types
+ * @param {Array|null} materialCodes - Array of material codes to filter by
+ * @param {string} filterMode - 'include' or 'exclude' for material filtering
  */
-export const generateINV01MovimientosPdf = async (movements, startDate, endDate) => {
+export const generateINV01FiltradoPdf = async (
+  movements, 
+  startDate, 
+  endDate,
+  includeEntradas,
+  includeSalidas,
+  soloTaller,
+  materialCodes = null,
+  filterMode = 'include'
+) => {
   if (!movements || movements.length === 0) {
     throw new Error('No hay datos para generar el PDF');
   }
@@ -30,9 +49,38 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
       });
     };
 
-    // Separate movements into entries and exits
-    const entradas = movements.filter(m => m.qty > 0);
-    const salidas = movements.filter(m => m.qty < 0);
+    // Apply filters
+    let filtered = movements;
+
+    // Filter by movement type
+    if (!includeEntradas) {
+      filtered = filtered.filter(m => m.qty < 0);
+    }
+    if (!includeSalidas) {
+      filtered = filtered.filter(m => m.qty > 0);
+    }
+
+    // Filter by order type (includes both Taller and Particular)
+    if (soloTaller) {
+      filtered = filtered.filter(m => isTallerOrParticular(m.orderType));
+    }
+
+    // Filter by materials
+    if (materialCodes && materialCodes.length > 0) {
+      if (filterMode === 'include') {
+        filtered = filtered.filter(m => m.materialCode && materialCodes.includes(m.materialCode));
+      } else {
+        filtered = filtered.filter(m => m.materialCode && !materialCodes.includes(m.materialCode));
+      }
+    }
+
+    if (filtered.length === 0) {
+      throw new Error('No hay movimientos que cumplan los criterios de filtrado');
+    }
+
+    // Separate into entries and exits
+    const entradas = filtered.filter(m => m.qty > 0);
+    const salidas = filtered.filter(m => m.qty < 0);
 
     // Calculate totals by unit
     const calculateTotalsByUnit = (movementsList) => {
@@ -50,6 +98,23 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
     const entradasByUnit = calculateTotalsByUnit(entradas);
     const salidasByUnit = calculateTotalsByUnit(salidas);
 
+    // Build filter description
+    const filterDescription = [];
+    if (includeEntradas && !includeSalidas) {
+      filterDescription.push('Solo Entradas');
+    } else if (!includeEntradas && includeSalidas) {
+      filterDescription.push('Solo Salidas');
+    } else {
+      filterDescription.push('Entradas y Salidas');
+    }
+    if (soloTaller) {
+      filterDescription.push('Solo Taller/Particular');
+    }
+    if (materialCodes && materialCodes.length > 0) {
+      filterDescription.push(`${materialCodes.length} material(es) ${filterMode === 'include' ? 'incluidos' : 'excluidos'}`);
+    }
+    const filterText = filterDescription.join(' - ');
+
     // Helper function to generate totals HTML
     const generateUnitTotalsHtml = (unitTotals, prefix = '') => {
       return Object.entries(unitTotals)
@@ -66,13 +131,14 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
         <div style="width: 80px; height: 40px; display: flex; align-items: center;">
           <img 
-            src="/logoConcretos.png"  
+            src="/logoConcretos.png" 
             alt="GS CONCRETOS Logo" 
             style="max-width: 120px; max-height: 60px; width: auto; height: auto; object-fit: contain;"
           />
         </div>
         <div style="text-align: center; flex: 1;">
-          <h1 style="margin: 0; font-size: 16px; font-weight: bold;">REPORTE DE MOVIMIENTOS DE INVENTARIO</h1>
+          <h1 style="margin: 0; font-size: 16px; font-weight: bold;">REPORTE FILTRADO DE INVENTARIO</h1>
+          <p style="margin: 5px 0 0 0; font-size: 10px; color: #666;">${filterText}</p>
         </div>
         <div style="text-align: right; font-size: 10px; width: 80px;">
           <div>FL-TAL-99 R</div>
@@ -198,9 +264,9 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
     };
 
     // Pagination settings
-    const ENTRIES_PER_PAGE = 18; // Slightly less to account for section titles
+    const ENTRIES_PER_PAGE = 18;
     let pageNumber = 1;
-    let totalPagesEstimate = Math.ceil(entradas.length / ENTRIES_PER_PAGE) + Math.ceil(salidas.length / ENTRIES_PER_PAGE);
+    let totalPagesEstimate = Math.ceil(entradas.length / ENTRIES_PER_PAGE) + Math.ceil(salidas.length / ENTRIES_PER_PAGE) + 1;
 
     // Generate ENTRADAS pages
     if (entradas.length > 0) {
@@ -303,37 +369,43 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
           <div style="font-size: 14px; font-weight: bold; margin-bottom: 20px; text-align: center;">RESUMEN DEL PERÍODO</div>
           <div style="font-size: 12px; line-height: 1.8;">
             <div style="margin-bottom: 10px;"><strong>Período:</strong> ${displayStartDate} - ${displayEndDate}</div>
-            <div style="margin-bottom: 10px;"><strong>Total Movimientos:</strong> ${movements.length}</div>
+            <div style="margin-bottom: 10px;"><strong>Filtros Aplicados:</strong> ${filterText}</div>
+            <div style="margin-bottom: 10px;"><strong>Total Movimientos Filtrados:</strong> ${filtered.length}</div>
             
-            <div style="margin-bottom: 15px; margin-top: 15px;">
-              <div style="margin-bottom: 5px;"><strong>Total Entradas:</strong> ${entradas.length} movimientos</div>
-              <div style="margin-bottom: 5px;"><strong>Cantidad Total Entradas por Unidad:</strong></div>
-              ${generateUnitTotalsHtml(entradasByUnit, '+')}
-            </div>
+            ${entradas.length > 0 ? `
+              <div style="margin-bottom: 15px; margin-top: 15px;">
+                <div style="margin-bottom: 5px;"><strong>Total Entradas:</strong> ${entradas.length} movimientos</div>
+                <div style="margin-bottom: 5px;"><strong>Cantidad Total Entradas por Unidad:</strong></div>
+                ${generateUnitTotalsHtml(entradasByUnit, '+')}
+              </div>
+            ` : ''}
             
-            <div style="margin-top: 15px;">
-              <div style="margin-bottom: 5px;"><strong>Total Salidas:</strong> ${salidas.length} movimientos</div>
-              <div style="margin-bottom: 5px;"><strong>Cantidad Total Salidas por Unidad:</strong></div>
-              ${generateUnitTotalsHtml(salidasByUnit, '-')}
-            </div>
+            ${salidas.length > 0 ? `
+              <div style="margin-top: 15px;">
+                <div style="margin-bottom: 5px;"><strong>Total Salidas:</strong> ${salidas.length} movimientos</div>
+                <div style="margin-bottom: 5px;"><strong>Cantidad Total Salidas por Unidad:</strong></div>
+                ${generateUnitTotalsHtml(salidasByUnit, '-')}
+              </div>
+            ` : ''}
           </div>
         </div>
 
         <div style="margin-top: 40px; font-size: 9px; color: #666; display: flex; justify-content: space-between;">
           <div>Generado el: ${new Date().toLocaleString('es-ES')}</div>
-          <div>Página ${pageNumber} de ${totalPagesEstimate + 1}</div>
+          <div>Página ${pageNumber} de ${totalPagesEstimate}</div>
         </div>
       </div>
     `;
 
     await addContentToPdf(summaryContent);
 
-    const filename = `Reporte_Movimientos_Inventario${displayStartDate.replace(/\//g, '-')}_${displayEndDate.replace(/\//g, '-')}.pdf`;
+    const filterSuffix = materialCodes && materialCodes.length > 0 ? `_${filterMode}_${materialCodes.length}mat` : '';
+    const filename = `Reporte_Filtrado_${displayStartDate.replace(/\//g, '-')}_${displayEndDate.replace(/\//g, '-')}${filterSuffix}.pdf`;
     pdf.save(filename);
     
     return true;
   } catch (error) {
-    console.error('Error generating INV01 Movimientos PDF:', error);
+    console.error('Error generating INV01 Filtrado PDF:', error);
     throw error;
   }
 };

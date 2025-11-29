@@ -1,3 +1,4 @@
+// SMAT01-particular.tsx
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -45,6 +46,8 @@ type ToastMessage = {
   type: 'success' | 'error';
   message: string;
 };
+
+type UsageType = 'general' | 'taller';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -245,10 +248,13 @@ export default function SMAT01Particular() {
 
   // State
   const [storageLocations, setStorageLocations] = useState<string[]>([]);
+  const [internalVehicles, setInternalVehicles] = useState<string[]>([]);
   const [materialEntries, setMaterialEntries] = useState<MaterialEntry[]>([]);
   
+  const [usageType, setUsageType] = useState<UsageType>('general');
   const [storageLocation, setStorageLocation] = useState<string>('');
   const [reason, setReason] = useState<string>('');
+  const [mobileUnit, setMobileUnit] = useState<string>('');
   const [entryDate, setEntryDate] = useState<string>(getTodayDate());
   
   const [loading, setLoading] = useState(true);
@@ -258,29 +264,39 @@ export default function SMAT01Particular() {
   
   const [searcherOpen, setSearcherOpen] = useState(false);
   const [currentEntryId, setCurrentEntryId] = useState<string>('');
+  
 
-  // Load storage locations on mount
+  // Load storage locations and vehicles on mount
   useEffect(() => {
-    loadStorageLocations();
+    loadDefaults();
   }, []);
 
-  // Load storage locations from defaults
-  const loadStorageLocations = async () => {
+  // Load defaults
+  const loadDefaults = async () => {
     try {
       setLoading(true);
-      const defaultsRef = doc(db, 'defaults', 'storage_defaults');
-      const defaultsSnap = await getDoc(defaultsRef);
       
-      if (defaultsSnap.exists()) {
-        const data = defaultsSnap.data();
+      // Load storage locations
+      const storageRef = doc(db, 'defaults', 'storage_defaults');
+      const storageSnap = await getDoc(storageRef);
+      
+      if (storageSnap.exists()) {
+        const data = storageSnap.data();
         setStorageLocations(data.storage_locations || []);
-      } else {
-        console.error('[SMAT01-particular] Storage defaults not found');
-        showToast('error', 'No se pudieron cargar las ubicaciones de almacenamiento');
       }
+      
+      // Load internal vehicles
+      const vehiclesRef = doc(db, 'defaults', 'work_order_defaults');
+      const vehiclesSnap = await getDoc(vehiclesRef);
+      
+      if (vehiclesSnap.exists()) {
+        const data = vehiclesSnap.data();
+        setInternalVehicles(data.internal_vehicles || []);
+      }
+      
     } catch (error) {
-      console.error('[SMAT01-particular] Error loading storage locations:', error);
-      showToast('error', 'Error al cargar ubicaciones de almacenamiento');
+      console.error('[SMAT01-particular] Error loading defaults:', error);
+      showToast('error', 'Error al cargar configuración');
     } finally {
       setLoading(false);
     }
@@ -364,6 +380,10 @@ export default function SMAT01Particular() {
       newErrors.reason = 'La descripción debe tener al menos 10 caracteres';
     }
     
+    if (usageType === 'taller' && !mobileUnit) {
+      newErrors.mobileUnit = 'Debe seleccionar una unidad móvil';
+    }
+    
     if (!entryDate) {
       newErrors.entryDate = 'Debe seleccionar una fecha';
     }
@@ -387,7 +407,7 @@ export default function SMAT01Particular() {
       isValid: Object.keys(newErrors).length === 0,
       errors: newErrors
     };
-  }, [storageLocation, reason, entryDate, materialEntries]);
+  }, [storageLocation, reason, entryDate, materialEntries, usageType, mobileUnit]);
 
   // Show toast
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
@@ -397,6 +417,8 @@ export default function SMAT01Particular() {
 
   // Save entry to Firebase
   const handleSave = useCallback(async () => {
+    if (saving) return;
+    
     const validation = validateForm();
     
     if (!validation.isValid) {
@@ -423,7 +445,7 @@ export default function SMAT01Particular() {
         }
       });
       
-      const entryData = {
+      const entryData: any = {
         entryId,
         createdAt: serverTimestamp(),
         createdBy: user.uid,
@@ -436,6 +458,11 @@ export default function SMAT01Particular() {
         storageLocation
       };
       
+      // Add mobileUnit if taller type
+      if (usageType === 'taller') {
+        entryData.mobileUnit = mobileUnit;
+      }
+      
       await setDoc(entryRef, entryData);
       console.log('[SMAT01-particular] Entry created:', entryId);
       
@@ -443,8 +470,10 @@ export default function SMAT01Particular() {
       
       // Reset form after 2 seconds
       setTimeout(() => {
+        setUsageType('general');
         setStorageLocation('');
         setReason('');
+        setMobileUnit('');
         setMaterialEntries([]);
         setEntryDate(getTodayDate());
         setErrors({});
@@ -456,7 +485,7 @@ export default function SMAT01Particular() {
     } finally {
       setSaving(false);
     }
-  }, [validateForm, user, storageLocation, reason, entryDate, materialEntries, showToast]);
+  }, [validateForm, user, storageLocation, reason, entryDate, materialEntries, usageType, mobileUnit, showToast]);
 
   if (loading) {
     return (
@@ -486,6 +515,44 @@ export default function SMAT01Particular() {
       />
 
       <div className="space-y-6">
+        {/* Usage Type Selection */}
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center gap-2">
+            <FileText size={20} />
+            Tipo de Uso
+          </h3>
+          
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="usageType"
+                value="general"
+                checked={usageType === 'general'}
+                onChange={() => {
+                  setUsageType('general');
+                  setMobileUnit('');
+                }}
+                disabled={saving}
+                className="w-4 h-4 text-red-600 focus:ring-2 focus:ring-red-500"
+              />
+              <span className="text-sm text-gray-700">Uso General</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="usageType"
+                value="taller"
+                checked={usageType === 'taller'}
+                onChange={() => setUsageType('taller')}
+                disabled={saving}
+                className="w-4 h-4 text-red-600 focus:ring-2 focus:ring-red-500"
+              />
+              <span className="text-sm text-gray-700">Taller</span>
+            </label>
+          </div>
+        </div>
+
         {/* Basic Information */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
@@ -513,6 +580,20 @@ export default function SMAT01Particular() {
               placeholder="Seleccione una ubicación"
             />
           </div>
+          
+          {usageType === 'taller' && (
+            <div className="mt-4">
+              <DropdownField
+                label="Unidad Móvil"
+                value={mobileUnit}
+                onChange={(e) => setMobileUnit(e.target.value)}
+                options={internalVehicles.map(v => ({ value: v, label: v }))}
+                error={errors.mobileUnit}
+                disabled={saving}
+                placeholder="Seleccione una unidad móvil"
+              />
+            </div>
+          )}
           
           <div className="mt-4">
             <TextAreaField

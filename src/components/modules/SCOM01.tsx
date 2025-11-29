@@ -34,7 +34,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/client";
 import SCOM01DownloadModal from '../helpers/SCOM01/SCOM01-list';
-import SCOM01Compuesto from '../helpers/SCOM01/SCOM01-compuesto';
+import SCOM01CalendarModal from '../helpers/SCOM01/SCOM01-calendarModal';
+import SCOM01DocumentModal from '../helpers/SCOM01/SCOM01-documentModal';
+import type { FetchedData } from '../helpers/SCOM01/SCOM01-calendarModal';
 
 // ---------------------------
 // Types
@@ -334,7 +336,6 @@ const Pagination = ({
           Anterior
         </button>
         
-        {/* Page numbers */}
         <div className="flex items-center gap-1">
           {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
             let pageNum;
@@ -378,45 +379,6 @@ const Pagination = ({
 };
 
 // ---------------------------
-// Compose Modal Component
-// ---------------------------
-const ComposeModal = ({
-  isOpen,
-  onClose
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <FileStack className="text-green-600" size={24} />
-            Armar Documento Compuesto
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-800 text-sm">
-              <strong>Próximamente:</strong> Creación de documentos multi-período con filtros avanzados
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ---------------------------
 // Main SCOM01 Module
 // ---------------------------
 export default function SCOM01Module() {
@@ -436,7 +398,6 @@ export default function SCOM01Module() {
   const [historicalLoading, setHistoricalLoading] = useState(false);
   const [hasMoreHistorical, setHasMoreHistorical] = useState(true);
   
-  // Use ref to avoid dependency issues
   const lastDocRef = useRef<DocumentSnapshot | null>(null);
 
   // Pagination states
@@ -447,9 +408,12 @@ export default function SCOM01Module() {
   const [selectedEntry, setSelectedEntry] = useState<CargaDisplay | null>(null);
   const [showHistorical, setShowHistorical] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [showComposeModal, setShowComposeModal] = useState(false);
+  
+  // Compound document states
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showDocument, setShowDocument] = useState(false);
+  const [fetchedData, setFetchedData] = useState<FetchedData | null>(null);
 
-  // Get today's document ID
   const todayDocId = useMemo(() => {
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
@@ -458,7 +422,6 @@ export default function SCOM01Module() {
     return `${day}-${month}-${year}`;
   }, []);
 
-  // Transform entry data from document
   const transformEntries = useCallback((docData: SCOM01Document): CargaDisplay[] => {
     const entries: CargaDisplay[] = [];
 
@@ -485,7 +448,6 @@ export default function SCOM01Module() {
     return entries.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }, []);
 
-  // Real-time subscription to today's document
   useEffect(() => {
     if (!user?.uid || showHistorical) return;
 
@@ -502,7 +464,6 @@ export default function SCOM01Module() {
           const transformedEntries = transformEntries(docData);
           setEntries(transformedEntries);
 
-          // Extract Totalizador values
           if (docData.docData) {
             setTinitial(docData.docData.Tinicial || '');
             setTfinal(docData.docData.Tfinal || '');
@@ -531,12 +492,10 @@ export default function SCOM01Module() {
     return unsubscribe;
   }, [user?.uid, todayDocId, transformEntries, showHistorical]);
 
-  // Reset page when switching views
   useEffect(() => {
     setCurrentPage(1);
   }, [showHistorical]);
 
-  // Validate document ID format (dd-MM-yyyy)
   const isValidDocumentFormat = useCallback((docId: string): boolean => {
     const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
     if (!dateRegex.test(docId)) return false;
@@ -548,7 +507,6 @@ export default function SCOM01Module() {
       date.getFullYear() === year;
   }, []);
 
-  // Load historical documents - Fixed to use ref
   const loadHistoricalDocs = useCallback(async (isLoadMore = false) => {
     if (!user?.uid) return;
 
@@ -625,28 +583,24 @@ export default function SCOM01Module() {
     }
   }, [user?.uid, isValidDocumentFormat]);
 
-  // Load historical data when switching to historical mode - Fixed dependencies
   useEffect(() => {
     if (showHistorical && user?.uid) {
       loadHistoricalDocs(false);
     }
-  }, [showHistorical, user?.uid]); // Removed loadHistoricalDocs from dependencies
+  }, [showHistorical, user?.uid]);
 
-  // Paginated entries for daily view
   const paginatedEntries = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return entries.slice(startIndex, endIndex);
   }, [entries, currentPage]);
 
-  // Paginated documents for historical view
   const paginatedHistoricalDocs = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return historicalDocs.slice(startIndex, endIndex);
   }, [historicalDocs, currentPage]);
 
-  // Calculate total pages
   const totalPages = useMemo(() => {
     if (showHistorical) {
       return Math.ceil(historicalDocs.length / ITEMS_PER_PAGE);
@@ -654,13 +608,11 @@ export default function SCOM01Module() {
     return Math.ceil(entries.length / ITEMS_PER_PAGE);
   }, [showHistorical, entries.length, historicalDocs.length]);
 
-  // Handle page change
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Calculate summary stats
   const summaryStats = useMemo(() => {
     const flotaEntries = entries.filter(e => e.type === 'flota');
     const externaEntries = entries.filter(e => e.type === 'externa');
@@ -707,7 +659,7 @@ export default function SCOM01Module() {
           </button>
 
           <button
-            onClick={() => setShowComposeModal(true)}
+            onClick={() => setShowCalendar(true)}
             className="h-32 bg-green-100 border-2 border-green-300 rounded-lg hover:bg-green-200 transition-all duration-200 flex flex-col items-center justify-center gap-3 group shadow-sm hover:shadow-md"
           >
             <FileStack size={32} className="text-green-600 group-hover:scale-110 transition-transform" />
@@ -716,7 +668,6 @@ export default function SCOM01Module() {
             </span>
           </button>
 
-          {/* Summary Stats - Only in daily mode */}
           {!showHistorical && (
             <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Resumen de Hoy</h3>
@@ -737,7 +688,6 @@ export default function SCOM01Module() {
             </div>
           )}
 
-          {/* Totalizadores Display - Only in daily mode */}
           {!showHistorical && (Tinicial || Tfinal) && (
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
@@ -764,7 +714,6 @@ export default function SCOM01Module() {
 
         {/* Main Content */}
         <div className="flex-1 bg-white border rounded-lg shadow-sm min-w-0">
-          {/* Controls */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
@@ -789,7 +738,6 @@ export default function SCOM01Module() {
             </div>
           </div>
 
-          {/* Error Display */}
           {error && (
             <div className="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2 text-red-800">
               <AlertCircle size={20} />
@@ -803,10 +751,8 @@ export default function SCOM01Module() {
             </div>
           )}
 
-          {/* Content Area */}
           <div className="overflow-x-auto">
             {showHistorical ? (
-              // Historical View
               <>
                 {historicalLoading && historicalDocs.length === 0 ? (
                   <div className="p-8 text-center">
@@ -843,7 +789,6 @@ export default function SCOM01Module() {
                 )}
               </>
             ) : (
-              // Daily View
               <>
                 {loading && entries.length === 0 ? (
                   <div className="p-8 text-center">
@@ -929,7 +874,6 @@ export default function SCOM01Module() {
             )}
           </div>
 
-          {/* Pagination */}
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -955,9 +899,31 @@ export default function SCOM01Module() {
         Tfinal={Tfinal}
       />
 
-      <SCOM01Compuesto
-        isOpen={showComposeModal}
-        onClose={() => setShowComposeModal(false)}
+      <SCOM01CalendarModal
+        isOpen={showCalendar}
+        onClose={() => {
+          setShowCalendar(false);
+          setFetchedData(null);
+        }}
+        onDataFetched={(data) => {
+          setFetchedData(data);
+          setShowCalendar(false);
+          setShowDocument(true);
+        }}
+      />
+
+      <SCOM01DocumentModal
+        isOpen={showDocument}
+        onClose={() => {
+          setShowDocument(false);
+          setFetchedData(null);
+        }}
+        data={fetchedData}
+        onNewSearch={() => {
+          setShowDocument(false);
+          setShowCalendar(true);
+          setFetchedData(null);
+        }}
       />
     </section>
   );

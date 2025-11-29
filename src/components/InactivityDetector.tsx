@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 
-const INACTIVITY_TIMEOUT = 420000; // 1 minute in milliseconds
+const INACTIVITY_TIMEOUT = 420000000; // 1 minute in milliseconds
 
 export function InactivityDetector() {
   const [showToast, setShowToast] = useState(false);

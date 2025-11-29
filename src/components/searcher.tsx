@@ -30,7 +30,7 @@ export default function Searcher({
   const [materials, setMaterials] = useState<Material[]>([]);
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchField, setSearchField] = useState<SearchField>('codigo');
+  const [searchField, setSearchField] = useState<SearchField>('descripcion');
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
