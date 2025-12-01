@@ -261,13 +261,13 @@ export default function INV01() {
             </div>
           )}
 
-          {selectedMaterial && (
-            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-900">
-                <strong>Material seleccionado:</strong> {materials.find(m => m.documentId === selectedMaterial)?.codigo} - {materials.find(m => m.documentId === selectedMaterial)?.descripcion}
-              </p>
-            </div>
-          )}
+          <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-900">
+              <strong>Material seleccionado:</strong> {selectedMaterial 
+                ? `${materials.find(m => m.documentId === selectedMaterial)?.codigo} - ${materials.find(m => m.documentId === selectedMaterial)?.descripcion}`
+                : '(selecciona un material)'}
+            </p>
+          </div>
         </div>
 
         <div className="bg-white border rounded-lg shadow-sm">
@@ -308,21 +308,19 @@ export default function INV01() {
                   {filteredMaterials.map((material) => (
                     <tr
                       key={material.documentId}
-                      className={`hover:bg-gray-50 transition-colors ${
+                      onClick={() => toggleSelection(material.documentId)}
+                      className={`hover:bg-gray-50 transition-colors cursor-pointer ${
                         selectedMaterial === material.documentId ? 'bg-blue-50' : ''
                       }`}
                     >
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => toggleSelection(material.documentId)}
-                          className="hover:bg-gray-200 rounded p-1 transition-colors"
-                        >
+                        <div className="pointer-events-none">
                           {selectedMaterial === material.documentId ? (
                             <CheckSquare size={20} className="text-blue-600" />
                           ) : (
                             <Square size={20} className="text-gray-400" />
                           )}
-                        </button>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
                         {material.codigo}

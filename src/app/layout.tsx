@@ -9,7 +9,7 @@ import { InactivityDetector } from "../components/InactivityDetector";
 import 'reactflow/dist/style.css';
 
 export const metadata: Metadata = {
-  title: "DEV - GS CORE",
+  title: "GS CORE",
   description: "Gs core es un sistema ERP diseÃ±ado para la facilidad de uso y cumplimiento de la ISO 9001 en los procesos de gs concretos S.A",
 };
 

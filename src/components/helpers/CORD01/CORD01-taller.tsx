@@ -129,26 +129,38 @@ const TextareaField = ({
   value,
   onChange,
   placeholder = '',
-  rows = 3
+  rows = 3,
+  required = false,
+  error
 }: {
   label: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
   rows?: number;
+  required?: boolean;
+  error?: string;
 }) => {
   return (
     <div className="flex flex-col">
       <label className="text-sm font-medium text-gray-700 mb-1">
-        {label}
+        {label} {required && <span className="text-red-500">*</span>}
       </label>
       <textarea
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
-        className="px-3 py-2 border border-gray-300 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        className={`px-3 py-2 border rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+          error ? 'border-red-300 bg-red-50' : 'border-gray-300'
+        }`}
       />
+      {error && (
+        <div className="mt-1 flex items-center gap-1 text-red-600 text-xs">
+          <AlertCircle size={12} />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
 };
@@ -214,6 +226,9 @@ export default function CORD01Taller() {
     }
     if (!formData.fechaAEjecutar) {
       newErrors.fechaAEjecutar = 'Seleccione la fecha a ejecutar';
+    }
+    if (!formData.descripcion.trim()) {
+      newErrors.descripcion = 'Ingrese la descripción del trabajo';
     }
 
     setErrors(newErrors);
@@ -428,7 +443,9 @@ export default function CORD01Taller() {
             label="Descripción"
             value={formData.descripcion}
             onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-            placeholder="Descripción del trabajo (opcional)"
+            placeholder="Descripción del trabajo"
+            required={true}
+            error={errors.descripcion}
           />
 
           <TextareaField
