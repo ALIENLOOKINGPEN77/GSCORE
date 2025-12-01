@@ -18,7 +18,7 @@ import INV01CalendarModal from "../helpers/INV01/INV01-calendarModal";
 // TYPE DEFINITIONS
 // ============================================================================
 
-type SearchType = 'descripcion' | 'codigo' | 'proveedor';
+type SearchType = 'descripcion' | 'codigo' | 'marca';
 
 type Material = {
   documentId: string;
@@ -146,8 +146,8 @@ export default function INV01() {
           return material.descripcion.toLowerCase().includes(term);
         case 'codigo':
           return material.codigo.toLowerCase().includes(term);
-        case 'proveedor':
-          return material.proveedor.toLowerCase().includes(term);
+        case 'marca':
+          return material.marca.toLowerCase().includes(term);
         default:
           return false;
       }
@@ -214,14 +214,14 @@ export default function INV01() {
               Código Interno
             </button>
             <button
-              onClick={() => setSearchType('proveedor')}
+              onClick={() => setSearchType('marca')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                searchType === 'proveedor'
+                searchType === 'marca'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Proveedor
+              Marca
             </button>
           </div>
 
@@ -232,7 +232,7 @@ export default function INV01() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={`Buscar por ${searchType === 'descripcion' ? 'descripción' : searchType === 'codigo' ? 'código interno' : 'proveedor'}...`}
+                placeholder={`Buscar por ${searchType === 'descripcion' ? 'descripción' : searchType === 'codigo' ? 'código interno' : 'marca'}...`}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
