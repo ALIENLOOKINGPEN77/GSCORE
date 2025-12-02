@@ -199,11 +199,11 @@ export default function INV01Modal({ material, onClose }: INV01ModalProps) {
               <h2 className="text-2xl font-bold text-gray-900">Detalles de Inventario</h2>
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-sm text-gray-600 font-mono">
-                  <span className="text-xs text-gray-500">Código ISO:</span> {material.documentId}
+                  <span className="text-xs text-gray-500"></span> {material.documentId}
                 </p>
                 <span className="text-gray-300">|</span>
                 <p className="text-sm text-gray-600 font-mono">
-                  <span className="text-xs text-gray-500">Código Interno:</span> {material.codigo}
+                  <span className="text-xs text-gray-500"></span> {material.codigo}
                 </p>
               </div>
             </div>
