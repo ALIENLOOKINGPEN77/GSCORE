@@ -61,6 +61,7 @@ export const generateINV01GeneralPdf = async (materialsWithInventory, reportDate
     `;
 
     // Helper function to generate material rows
+    // UPDATED: Font sizes increased (7px -> 9px, 8px -> 10px)
     const generateMaterialRows = (material) => {
       const inventory = material.inventory || {};
       const locations = Object.keys(inventory).filter(loc => inventory[loc].quantity !== 0);
@@ -82,12 +83,12 @@ export const generateINV01GeneralPdf = async (materialsWithInventory, reportDate
         rows += `
           <tr style="background-color: #ffffff;">
             ${isFirstRow ? `
-              <td rowspan="${rowspan}" style="border: 1px solid #000; padding: 5px; font-size: 7px; vertical-align: top; color: #000;">${material.descripcion}</td>
-              <td rowspan="${rowspan}" style="border: 1px solid #000; padding: 5px; font-size: 7px; text-align: center; vertical-align: top; color: #000;">${material.marca || '-'}</td>
+              <td rowspan="${rowspan}" style="border: 1px solid #000; padding: 5px; font-size: 9px; vertical-align: top; color: #000;">${material.descripcion}</td>
+              <td rowspan="${rowspan}" style="border: 1px solid #000; padding: 5px; font-size: 9px; text-align: center; vertical-align: top; color: #000;">${material.marca || '-'}</td>
             ` : ''}
-            <td style="border: 1px solid #000; padding: 5px; font-size: 7px; text-align: center; color: #000;">${location}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 9px; color: #000;">${qty}</td>
-            <td style="border: 1px solid #000; padding: 5px; font-size: 8px; text-align: center; color: #000;">${material.unidadDeMedida || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 9px; text-align: center; color: #000;">${location}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px; font-weight: bold; color: #000;">${qty}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 10px; text-align: center; color: #000;">${material.unidadDeMedida || '-'}</td>
           </tr>
         `;
       });
@@ -136,7 +137,7 @@ export const generateINV01GeneralPdf = async (materialsWithInventory, reportDate
           ${generateHeader()}
           ${htmlContent}
           <div style="margin-top: 40px; font-size: 9px; color: #000; display: flex; justify-content: space-between;">
-            <div>Generado el: ${new Date().toLocaleString('es-ES')} / Reporte consolidado al: 31/10/2025 / Encargado de control de inventario: Marco Meza</div>
+            <div>Generado el: ${new Date().toLocaleString('es-ES')} / Encargado de control de inventario: Marco Meza</div>
             <div>Página ${pageNum} de ${totalPages}</div>
           </div>
         </div>
@@ -146,7 +147,7 @@ export const generateINV01GeneralPdf = async (materialsWithInventory, reportDate
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
-      const targetScale = 1.5;
+      const targetScale = 2;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {
@@ -193,11 +194,12 @@ export const generateINV01GeneralPdf = async (materialsWithInventory, reportDate
     };
 
     // Pagination settings
-    const MATERIALS_PER_PAGE = 36; // Increased from 12 to utilize full page height
-    const totalPages = Math.ceil(materialsWithStock.length / MATERIALS_PER_PAGE);
-
+    // UPDATED: Reduced from 36 to 25 to accommodate larger font/taller rows
+    const MATERIALS_PER_PAGE = 25; 
+    
     // Generate material pages
     const materialPages = Math.ceil(materialsWithStock.length / MATERIALS_PER_PAGE);
+    const totalPages = materialPages; // Sync total pages var
     
     for (let pageIndex = 0; pageIndex < materialPages; pageIndex++) {
       const startIdx = pageIndex * MATERIALS_PER_PAGE;
@@ -207,7 +209,7 @@ export const generateINV01GeneralPdf = async (materialsWithInventory, reportDate
       const tableRows = pageMaterials.map(material => generateMaterialRows(material)).join('');
 
       const content = `
-        <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
           ${generateTableHeader()}
           <tbody>
             ${tableRows}

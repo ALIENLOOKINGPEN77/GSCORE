@@ -85,29 +85,30 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
     const generateTableHeader = () => `
       <thead>
         <tr style="background-color: #f0f0f0;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">FECHA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">CÓDIGO<br/>MATERIAL</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 130px;">DESCRIPCIÓN<br/>MATERIAL</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">CANTIDAD</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">UNIDAD DE<br/>MEDIDA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">UBICACIÓN</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px;">ID<br/>OPERACIÓN</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">FECHA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 75px;">CÓDIGO<br/>MATERIAL</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 140px;">DESCRIPCIÓN<br/>MATERIAL</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px;">CANTIDAD</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px;">UNIDAD DE<br/>MEDIDA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 75px;">UBICACIÓN</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 85px;">ID<br/>OPERACIÓN</th>
         </tr>
       </thead>
     `;
 
     // Helper function to generate table rows
+    // UPDATED: Font size set to 10px (with 9px for description/location and 8px for ID)
     const generateTableRows = (pageMovements) => {
       return pageMovements.map(movement => {
         return `
           <tr style="background-color: #ffffff;">
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${formatDate(movement.effectiveAt)}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px; font-weight: bold; font-family: monospace;">${movement.materialCode || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; font-size: 7px;">${movement.materialDescription || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 9px; font-weight: bold;">${movement.qty > 0 ? '+' : ''}${movement.qty}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${movement.unidadDeMedida || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 7px;">${movement.storageLocation}</td>
-            <td style="border: 1px solid #000; padding: 5px; font-size: 6px; text-align: center; font-family: monospace;">${movement.sourceId || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px;">${formatDate(movement.effectiveAt)}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px; font-weight: bold; font-family: monospace;">${movement.materialCode || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 9px;">${movement.materialDescription || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px; font-weight: bold;">${movement.qty > 0 ? '+' : ''}${movement.qty}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 9px;">${movement.unidadDeMedida || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 9px;">${movement.storageLocation}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 8px; text-align: center; font-family: monospace;">${movement.sourceId || '-'}</td>
           </tr>
         `;
       }).join('');
@@ -151,7 +152,7 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
-      const targetScale = 1.5;
+      const targetScale = 2;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {
@@ -198,7 +199,9 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
     };
 
     // Pagination settings
-    const ENTRIES_PER_PAGE = 18; // Slightly less to account for section titles
+    // UPDATED: Adjusted to 15 to fit 10px rows comfortably on A4
+    const ENTRIES_PER_PAGE = 15; 
+    
     let pageNumber = 1;
     let totalPagesEstimate = Math.ceil(entradas.length / ENTRIES_PER_PAGE) + Math.ceil(salidas.length / ENTRIES_PER_PAGE);
 
@@ -225,7 +228,7 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
             ${generateHeader()}
             ${isFirstEntradasPage ? generateSectionTitle('TABLA DE ENTRADAS DE DEPÓSITO') : ''}
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
               ${generateTableHeader()}
               <tbody>
                 ${generateTableRows(pageMovements)}
@@ -267,7 +270,7 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
             ${generateHeader()}
             ${isFirstSalidasPage ? generateSectionTitle('TABLA DE SALIDAS DE DEPÓSITO') : ''}
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
               ${generateTableHeader()}
               <tbody>
                 ${generateTableRows(pageMovements)}
@@ -301,7 +304,7 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
 
         <div style="background-color: #f0f0f0; padding: 20px; border: 1px solid #000; margin-top: 30px;">
           <div style="font-size: 14px; font-weight: bold; margin-bottom: 20px; text-align: center;">RESUMEN DEL PERÍODO</div>
-          <div style="font-size: 12px; line-height: 1.8;">
+          <div style="font-size: 11px; line-height: 1.8;">
             <div style="margin-bottom: 10px;"><strong>Período:</strong> ${displayStartDate} - ${displayEndDate}</div>
             <div style="margin-bottom: 10px;"><strong>Total Movimientos:</strong> ${movements.length}</div>
             
@@ -320,7 +323,7 @@ export const generateINV01MovimientosPdf = async (movements, startDate, endDate)
         </div>
 
         <div style="margin-top: 40px; font-size: 9px; color: #666; display: flex; justify-content: space-between;">
-          <div>Generado el: ${new Date().toLocaleString('es-ES')}</div>
+          <div>Generado el: ${new Date().toLocaleString('es-ES')} / Encargado de control de inventario: Marco Meza</div>
           <div>Página ${pageNumber} de ${totalPagesEstimate + 1}</div>
         </div>
       </div>

@@ -119,10 +119,11 @@ export const generateINV01FiltradoCentrosPdf = async (
       </div>
     `;
 
+    // UPDATED: Adjusted widths for 10px font
     const generateTableHeader = () => `
       <thead>
         <tr style="background-color: #ffffff;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 250px; color: #000;">DESCRIPCIÓN</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 220px; color: #000;">DESCRIPCIÓN</th>
           <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">CANTIDAD</th>
           <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px; color: #000;">UNIDAD<br/>MEDIDA</th>
           <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px; color: #000;">UBICACIÓN</th>
@@ -130,26 +131,28 @@ export const generateINV01FiltradoCentrosPdf = async (
       </thead>
     `;
 
+    // UPDATED: Font sizes increased (7->9, 8->10, 9->10)
     const generateTableRows = (movementsList) => {
       return movementsList.map(movement => `
         <tr style="background-color: #ffffff;">
-          <td style="border: 1px solid #000; padding: 5px; font-size: 7px; color: #000;">${movement.materialDescription || '-'}</td>
-          <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 9px; color: #000;">${movement.qty > 0 ? '+' : ''}${movement.qty}</td>
-          <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px; color: #000;">${movement.unidadDeMedida || '-'}</td>
-          <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 7px; color: #000;">${movement.storageLocation}</td>
+          <td style="border: 1px solid #000; padding: 5px; font-size: 9px; color: #000;">${movement.materialDescription || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px; color: #000;">${movement.qty > 0 ? '+' : ''}${movement.qty}</td>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px; color: #000;">${movement.unidadDeMedida || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 9px; color: #000;">${movement.storageLocation}</td>
         </tr>
       `).join('');
     };
 
     const generateGroupTitle = (groupName) => `
       <div style="margin-bottom: 4px; padding: 2px;">
-        <h2 style="font-size: 12px; font-weight: bold;">${groupName}</h2>
+        <h2 style="font-size: 13px; font-weight: bold;">${groupName}</h2>
       </div>
     `;
 
+    // UPDATED: Base font size 10px
     const generateGroupTable = (groupName, movementsList) => `
       ${generateGroupTitle(groupName)}
-      <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 15px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 15px;">
         ${generateTableHeader()}
         <tbody>
           ${generateTableRows(movementsList)}
@@ -166,9 +169,10 @@ export const generateINV01FiltradoCentrosPdf = async (
     let isFirstPage = true;
     let pageNumber = 1;
 
+    // UPDATED: Increased rowHeight estimation (25->35) for larger font
     const estimateTableHeight = (numRows) => {
-      const headerHeight = 80;
-      const rowHeight = 25;
+      const headerHeight = 90;
+      const rowHeight = 35;
       const marginHeight = 30;
       return headerHeight + (numRows * rowHeight) + marginHeight;
     };
@@ -201,7 +205,7 @@ export const generateINV01FiltradoCentrosPdf = async (
           ${generateHeader()}
           ${htmlContent}
           <div style="margin-top: 40px; font-size: 9px; color: #000; display: flex; justify-content: space-between;">
-            <div>Generado el: ${new Date().toLocaleString('es-ES')} / Reporte consolidado al: 31/10/2025 / Encargado de control de inventario: Marco Meza</div>
+            <div>Generado el: ${new Date().toLocaleString('es-ES')} / Encargado de control de inventario: Marco Meza</div>
             <div>Página ${pageNum} de ${totalPages}</div>
           </div>
         </div>  
@@ -210,7 +214,7 @@ export const generateINV01FiltradoCentrosPdf = async (
       tempDiv.innerHTML = fullContent;
       document.body.appendChild(tempDiv);
 
-      const targetScale = 1.5;
+      const targetScale = 2;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {

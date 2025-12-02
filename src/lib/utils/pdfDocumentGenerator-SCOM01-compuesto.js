@@ -34,8 +34,8 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
 
-    // Pagination: 12 entries per page
-    const ENTRIES_PER_PAGE = 12;
+    // Pagination: Reduced from 12 to 10 to fit 10px font rows in landscape
+    const ENTRIES_PER_PAGE = 10;
     const totalPages = Math.ceil(allEntries.length / ENTRIES_PER_PAGE);
 
     // Helper function to render signature
@@ -107,41 +107,43 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
     `;
 
     // Helper function to generate table header with DATE column
+    // UPDATED: Adjusted widths for 10px font
     const generateTableHeader = () => `
       <thead>
         <tr style="background-color: #f0f0f0;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">FECHA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 45px;">TIPO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 85px;">EMPRESA /<br>NRO. MÓVIL</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">NRO. CHAPA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 95px;">CHOFER</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px;">LITROS<br>CARGADOS</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 45px;">HORA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">KILOMETRAJE</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">HORÓMETRO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px;">PRECINTO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px;">FIRMA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">FECHA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">TIPO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 100px;">EMPRESA /<br>NRO. MÓVIL</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">NRO. CHAPA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 110px;">CHOFER</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">LITROS<br>CARGADOS</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">HORA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">KILOMETRAJE</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 65px;">HORÓMETRO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">PRECINTO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 95px;">FIRMA</th>
         </tr>
       </thead>
     `;
 
     // Helper function to generate table rows with DATE column
+    // UPDATED: Font sizes increased (8px -> 10px)
     const generateTableRows = (pageEntries) => {
       return pageEntries.map(entry => {
         const isFlota = entry.type === 'flota';
         const entryDate = entry.sourceDate ? entry.sourceDate.split('-').reverse().join('/') : '-';
         return `
           <tr style="background-color: #fafafa;">
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${entryDate}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px;">${isFlota ? 'INTERNO' : 'EXTERNO'}</td>
-            <td style="border: 1px solid #000; padding: 5px;">${isFlota ? entry.NroMovil : entry.Empresa}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center;">${isFlota ? '-' : (entry.NumeroChapa || '-')}</td>
-            <td style="border: 1px solid #000; padding: 5px;">${isFlota ? entry.Chofer : entry.NombreChofer}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-weight: bold;">${parseFloat(isFlota ? entry.Litros : entry.LitrosCargados).toFixed(2)}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center;">${isFlota ? entry.HoraCarga : entry.Hora}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right;">${entry.Kilometraje || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right;">${entry.Horometro || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center;">${entry.Precinto || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px;">${entryDate}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px;">${isFlota ? 'INTERNO' : 'EXTERNO'}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 10px; font-weight: bold;">${isFlota ? entry.NroMovil : entry.Empresa}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px;">${isFlota ? '-' : (entry.NumeroChapa || '-')}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 9px;">${isFlota ? entry.Chofer : entry.NombreChofer}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-weight: bold; font-size: 10px;">${parseFloat(isFlota ? entry.Litros : entry.LitrosCargados).toFixed(2)}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px;">${isFlota ? entry.HoraCarga : entry.Hora}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px;">${entry.Kilometraje || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px;">${entry.Horometro || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px;">${entry.Precinto || '-'}</td>
             <td style="border: 1px solid #000; padding: 3px; text-align: center; vertical-align: middle;">
               <div style="display: flex; align-items: center; justify-content: center; height: 30px;">
                 ${renderSignatureCell(entry)}
@@ -195,7 +197,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
         ">
           ${generateHeader()}
 
-          <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
             ${generateTableHeader()}
             <tbody>
               ${generateTableRows(pageEntries)}
@@ -221,7 +223,7 @@ export const generateSCOM01CompuestoPdf = async (entries, startDate, endDate, fi
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
-      const targetScale = 1.5;
+      const targetScale = 2;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {

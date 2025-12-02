@@ -129,26 +129,28 @@ export const generateSCOM01CompuestoVehiculoPdf = async (entries, startDate, end
     `;
 
     const generateSectionHeader = (sectionTitle) => `
-      <div style="margin-bottom: 4px; padding: 2px;">
-        <h2 style="font-size: 12px; font-weight: bold; color: #000;">${sectionTitle}</h2>
+      <div style="margin-bottom: 10px; margin-top: 10px; padding: 5px; background-color: #f5f5f5; border-bottom: 1px solid #ccc;">
+        <h2 style="margin: 0; font-size: 14px; font-weight: bold; color: #000;">${sectionTitle}</h2>
       </div>
     `;
 
+    // UPDATED: Adjusted widths for Landscape layout and 10px font
     const generateTableHeader = () => `
       <thead>
         <tr style="background-color: #f0f0f0;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">FECHA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 95px; color: #000;">CHOFER</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px; color: #000;">LITROS<br>CARGADOS</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 45px; color: #000;">HORA</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">KILOMETRAJE</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">HORÓMETRO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 55px; color: #000;">PRECINTO</th>
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px; color: #000;">FIRMA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px; color: #000;">FECHA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 130px; color: #000;">CHOFER</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">LITROS<br>CARGADOS</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px; color: #000;">HORA</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px; color: #000;">KILOMETRAJE</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px; color: #000;">HORÓMETRO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">PRECINTO</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 100px; color: #000;">FIRMA</th>
         </tr>
       </thead>
     `;
 
+    // UPDATED: Font sizes increased (8px -> 10px)
     const generateVehicleSection = (vehicleId, vehicleEntries) => {
       const vehicleTotal = vehicleEntries.reduce((sum, entry) => 
         sum + parseFloat(entry.type === 'flota' ? entry.Litros : entry.LitrosCargados), 0);
@@ -158,13 +160,13 @@ export const generateSCOM01CompuestoVehiculoPdf = async (entries, startDate, end
         const entryDate = entry.sourceDate ? entry.sourceDate.split('-').reverse().join('/') : '-';
         return `
           <tr style="background-color: #fafafa;">
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px; color: #000;">${entryDate}</td>
-            <td style="border: 1px solid #000; padding: 5px; color: #000;">${isFlota ? entry.Chofer : entry.NombreChofer}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-weight: bold; color: #000;">${parseFloat(isFlota ? entry.Litros : entry.LitrosCargados).toFixed(2)}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; color: #000;">${isFlota ? entry.HoraCarga : entry.Hora}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; color: #000;">${entry.Kilometraje || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; color: #000;">${entry.Horometro || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; color: #000;">${entry.Precinto || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px; color: #000;">${entryDate}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 10px; color: #000;">${isFlota ? entry.Chofer : entry.NombreChofer}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-weight: bold; font-size: 10px; color: #000;">${parseFloat(isFlota ? entry.Litros : entry.LitrosCargados).toFixed(2)}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px; color: #000;">${isFlota ? entry.HoraCarga : entry.Hora}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px; color: #000;">${entry.Kilometraje || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px; color: #000;">${entry.Horometro || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px; color: #000;">${entry.Precinto || '-'}</td>
             <td style="border: 1px solid #000; padding: 3px; text-align: center; vertical-align: middle;">
               <div style="display: flex; align-items: center; justify-content: center; height: 30px;">
                 ${renderSignatureCell(entry)}
@@ -175,16 +177,16 @@ export const generateSCOM01CompuestoVehiculoPdf = async (entries, startDate, end
       }).join('');
 
       return `
-        <div style="margin-bottom: 25px; page-break-inside: avoid;">
+        <div style="margin-bottom: 25px;">
           <div style="background-color: #e0e0e0; color: #000; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #000; display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 14px; font-weight: bold;">${vehicleId}</div>
+            <div style="font-size: 12px; font-weight: bold;">${vehicleId}</div>
             <div style="text-align: right;">
               <div style="font-size: 10px;">Cargas: ${vehicleEntries.length}</div>
-              <div style="font-size: 12px; font-weight: bold;">Total: ${vehicleTotal.toFixed(2)}L</div>
+              <div style="font-size: 11px; font-weight: bold;">Total: ${vehicleTotal.toFixed(2)}L</div>
             </div>
           </div>
           
-          <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
             ${generateTableHeader()}
             <tbody>
               ${rows}
@@ -202,151 +204,168 @@ export const generateSCOM01CompuestoVehiculoPdf = async (entries, startDate, end
     });
 
     let isFirstPage = true;
-    const internalKeys = Object.keys(internalVehicles).sort();
-    const externalKeys = Object.keys(externalVehicles).sort();
+    let pageNumber = 1;
 
-    // Process internal vehicles
+    // Helper to estimate height of a vehicle table block
+    const estimateTableHeight = (numRows) => {
+      const headerHeight = 70; // Title bar + Table header
+      const rowHeight = 35; // Increased for 10px font
+      const marginHeight = 25;
+      return headerHeight + (numRows * rowHeight) + marginHeight;
+    };
+
+    const addContentToPdf = async (htmlContent, pageNum, totalPages) => {
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '0';
+      tempDiv.style.width = '1200px';
+      tempDiv.style.backgroundColor = '#ffffff';
+      tempDiv.style.padding = '20px';
+      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      tempDiv.style.zoom = '1.0';
+      tempDiv.style.transform = 'scale(1)';
+      tempDiv.style.transformOrigin = 'top left';
+      tempDiv.style.webkitFontSmoothing = 'antialiased';
+      tempDiv.style.mozOsxFontSmoothing = 'grayscale';
+
+      const fullContent = `
+        <div style="
+          width: 100%; 
+          max-width: 1160px;
+          zoom: 1.0;
+          transform: scale(1);
+          transform-origin: top left;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        ">
+          ${generateHeader()}
+          ${htmlContent}
+          <div style="margin-top: 40px; font-size: 9px; color: #666; display: flex; justify-content: space-between;">
+            <div>Generado el: ${new Date().toLocaleString('es-ES')}</div>
+            <div>Página ${pageNum}</div>
+          </div>
+        </div>  
+      `;
+
+      tempDiv.innerHTML = fullContent;
+      document.body.appendChild(tempDiv);
+
+      const targetScale = 1.5;
+      const normalizedScale = targetScale / window.devicePixelRatio;
+
+      const canvas = await html2canvas(tempDiv, {
+        scale: normalizedScale,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        width: 1200,
+        height: tempDiv.scrollHeight,
+        logging: false,
+        windowWidth: 1200,
+        windowHeight: tempDiv.scrollHeight,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        foreignObjectRendering: false
+      });
+
+      document.body.removeChild(tempDiv);
+
+      if (!isFirstPage) {
+        pdf.addPage();
+      }
+      isFirstPage = false;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.70);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      } else {
+        const scale = pdfHeight / imgHeight;
+        const scaledWidth = imgWidth * scale;
+        const scaledHeight = pdfHeight;
+        const xOffset = (pdfWidth - scaledWidth) / 2;
+        
+        pdf.addImage(imgData, 'PNG', xOffset, 0, scaledWidth, scaledHeight);
+      }
+    };
+
+    // Smart Pagination Logic
+    const MAX_PAGE_HEIGHT = 1000;
+    let currentPageContent = '';
+    let currentPageHeight = 0;
+    
+    // Process Internal Vehicles
+    const internalKeys = Object.keys(internalVehicles).sort();
     if (internalKeys.length > 0) {
+      currentPageContent += generateSectionHeader('VEHÍCULOS INTERNOS');
+      currentPageHeight += 50;
+
       for (let i = 0; i < internalKeys.length; i++) {
         const vehicleKey = internalKeys[i];
         const vehicleEntries = internalVehicles[vehicleKey];
-        
-        const tempDiv = document.createElement('div');
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.top = '0';
-        tempDiv.style.width = '1200px';
-        tempDiv.style.backgroundColor = '#ffffff';
-        tempDiv.style.padding = '20px';
-        tempDiv.style.fontFamily = 'Arial, sans-serif';
-        tempDiv.style.zoom = '1.0';
-        tempDiv.style.transform = 'scale(1)';
-        tempDiv.style.transformOrigin = 'top left';
-        tempDiv.style.webkitFontSmoothing = 'antialiased';
-        tempDiv.style.mozOsxFontSmoothing = 'grayscale';
+        const tableHeight = estimateTableHeight(vehicleEntries.length);
+        const vehicleHtml = generateVehicleSection(vehicleKey, vehicleEntries);
 
-        tempDiv.innerHTML = `
-          <div style="width: 100%; max-width: 1160px; zoom: 1.0; transform: scale(1); transform-origin: top left;">
-            ${generateHeader()}
-            ${i === 0 ? generateSectionHeader('VEHÍCULOS INTERNOS') : ''}
-            ${generateVehicleSection(vehicleKey, vehicleEntries)}
-          </div>
-        `;
-
-        document.body.appendChild(tempDiv);
-
-        const targetScale = 1.5;
-        const normalizedScale = targetScale / window.devicePixelRatio;
-
-        const canvas = await html2canvas(tempDiv, {
-          scale: normalizedScale,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          width: 1200,
-          height: tempDiv.scrollHeight,
-          logging: false,
-          windowWidth: 1200,
-          windowHeight: tempDiv.scrollHeight
-        });
-
-        document.body.removeChild(tempDiv);
-
-        if (!isFirstPage) {
-          pdf.addPage();
-        }
-        isFirstPage = false;
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.70);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        if (imgHeight <= pdfHeight) {
-          pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        if (currentPageHeight + tableHeight > MAX_PAGE_HEIGHT && currentPageContent !== '') {
+          // Page full, render and start new
+          await addContentToPdf(currentPageContent, pageNumber);
+          pageNumber++;
+          currentPageContent = generateSectionHeader('VEHÍCULOS INTERNOS (CONT.)') + vehicleHtml;
+          currentPageHeight = 50 + tableHeight;
         } else {
-          const scale = pdfHeight / imgHeight;
-          const scaledWidth = imgWidth * scale;
-          const scaledHeight = pdfHeight;
-          const xOffset = (pdfWidth - scaledWidth) / 2;
-          pdf.addImage(imgData, 'PNG', xOffset, 0, scaledWidth, scaledHeight);
+          currentPageContent += vehicleHtml;
+          currentPageHeight += tableHeight;
         }
       }
     }
 
-    // Process external vehicles
+    // Process External Vehicles
+    const externalKeys = Object.keys(externalVehicles).sort();
     if (externalKeys.length > 0) {
+      // Add section header, potentially breaking page if near end
+      if (currentPageHeight + 50 > MAX_PAGE_HEIGHT && currentPageContent !== '') {
+        await addContentToPdf(currentPageContent, pageNumber);
+        pageNumber++;
+        currentPageContent = '';
+        currentPageHeight = 0;
+      }
+      
+      currentPageContent += generateSectionHeader('VEHÍCULOS EXTERNOS');
+      currentPageHeight += 50;
+
       for (let i = 0; i < externalKeys.length; i++) {
         const vehicleKey = externalKeys[i];
         const vehicleData = externalVehicles[vehicleKey];
-        
-        const tempDiv = document.createElement('div');
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.top = '0';
-        tempDiv.style.width = '1200px';
-        tempDiv.style.backgroundColor = '#ffffff';
-        tempDiv.style.padding = '20px';
-        tempDiv.style.fontFamily = 'Arial, sans-serif';
-        tempDiv.style.zoom = '1.0';
-        tempDiv.style.transform = 'scale(1)';
-        tempDiv.style.transformOrigin = 'top left';
-        tempDiv.style.webkitFontSmoothing = 'antialiased';
-        tempDiv.style.mozOsxFontSmoothing = 'grayscale';
+        const tableHeight = estimateTableHeight(vehicleData.entries.length);
+        const vehicleHtml = generateVehicleSection(vehicleKey, vehicleData.entries);
 
-        tempDiv.innerHTML = `
-          <div style="width: 100%; max-width: 1160px; zoom: 1.0; transform: scale(1); transform-origin: top left;">
-            ${generateHeader()}
-            ${i === 0 ? generateSectionHeader('VEHÍCULOS EXTERNOS') : ''}
-            ${generateVehicleSection(vehicleKey, vehicleData.entries)}
-          </div>
-        `;
-
-        document.body.appendChild(tempDiv);
-
-        const targetScale = 1.5;
-        const normalizedScale = targetScale / window.devicePixelRatio;
-
-        const canvas = await html2canvas(tempDiv, {
-          scale: normalizedScale,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          width: 1200,
-          height: tempDiv.scrollHeight,
-          logging: false,
-          windowWidth: 1200,
-          windowHeight: tempDiv.scrollHeight
-        });
-
-        document.body.removeChild(tempDiv);
-
-        if (!isFirstPage) {
-          pdf.addPage();
-        }
-        isFirstPage = false;
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.70);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        if (imgHeight <= pdfHeight) {
-          pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        if (currentPageHeight + tableHeight > MAX_PAGE_HEIGHT && currentPageContent !== '') {
+          await addContentToPdf(currentPageContent, pageNumber);
+          pageNumber++;
+          currentPageContent = generateSectionHeader('VEHÍCULOS EXTERNOS (CONT.)') + vehicleHtml;
+          currentPageHeight = 50 + tableHeight;
         } else {
-          const scale = pdfHeight / imgHeight;
-          const scaledWidth = imgWidth * scale;
-          const scaledHeight = pdfHeight;
-          const xOffset = (pdfWidth - scaledWidth) / 2;
-          pdf.addImage(imgData, 'PNG', xOffset, 0, scaledWidth, scaledHeight);
+          currentPageContent += vehicleHtml;
+          currentPageHeight += tableHeight;
         }
       }
     }
 
-    // Add summary page
-    pdf.addPage();
+    // Flush remaining content
+    if (currentPageContent !== '') {
+      await addContentToPdf(currentPageContent, pageNumber);
+      pageNumber++;
+    }
+
+    // Add Summary Page
     const summaryDiv = document.createElement('div');
     summaryDiv.style.position = 'absolute';
     summaryDiv.style.left = '-9999px';
@@ -378,13 +397,14 @@ export const generateSCOM01CompuestoVehiculoPdf = async (entries, startDate, end
             </div>
             <div style="display: flex; justify-content: space-between; padding: 10px; background-color: #f0f0f0; border: 1px solid #000;">
               <strong>TOTAL VEHÍCULOS CARGADOS:</strong>
-              <span style="font-weight: bold;">${internalKeys.length + externalKeys.length}</span>
+              <span style="font-weight: bold;">${Object.keys(internalVehicles).length + Object.keys(externalVehicles).length}</span>
             </div>
           </div>
         </div>
 
         <div style="margin-top: 40px; font-size: 9px; color: #666;">
           Generado el: ${new Date().toLocaleString('es-ES')}
+          <div style="float: right;">Página ${pageNumber}</div>
         </div>
       </div>
     `;
@@ -400,6 +420,9 @@ export const generateSCOM01CompuestoVehiculoPdf = async (entries, startDate, end
 
     document.body.removeChild(summaryDiv);
 
+    // Add summary page to PDF
+    pdf.addPage();
+    
     const summaryImgData = summaryCanvas.toDataURL('image/jpeg', 0.70);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();

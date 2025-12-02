@@ -72,7 +72,7 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
         <div style="text-align: center; flex: 1;">
           <h1 style="margin: 0; font-size: 16px; font-weight: bold; color: #000;">REPORTE DE MOVIMIENTOS DE INVENTARIO - TALLER</h1>
           <p style="margin: 5px 0 0 0; font-size: 11px; color: #000;">Período: ${displayStartDate} - ${displayEndDate}</p>
-          <p style="margin: 2px 0 0 0; font-size: 9px; color: #666;">Incluye: Órdenes de Taller y Salidas Particulares</p>
+          <p style="margin: 2px 0 0 0; font-size: 10px; color: #666;">Incluye: Órdenes de Taller y Salidas Particulares</p>
         </div>
         <div style="text-align: right; font-size: 10px; width: 80px; color: #000;">
           <div>FL-TAL-99 R</div>
@@ -82,10 +82,11 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
     `;
 
     // Helper function to generate table header
+    // UPDATED: Adjusted widths for 10px font
     const generateTableHeader = () => `
       <thead>
         <tr style="background-color: #ffffff;">
-          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 250px; color: #000;">DESCRIPCIÓN</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 220px; color: #000;">DESCRIPCIÓN</th>
           <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px; color: #000;">CANTIDAD</th>
           <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px; color: #000;">UNIDAD<br/>MEDIDA</th>
           <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 90px; color: #000;">UBICACIÓN</th>
@@ -94,14 +95,15 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
     `;
 
     // Helper function to generate table rows
+    // UPDATED: Font size increased to 10px (9px for description to fit better)
     const generateTableRows = (movementsList) => {
       return movementsList.map(movement => {
         return `
           <tr style="background-color: #ffffff;">
-            <td style="border: 1px solid #000; padding: 5px; font-size: 7px; color: #000;">${movement.materialDescription || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 9px; color: #000;">${movement.qty}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 8px; color: #000;">${movement.unidadDeMedida || '-'}</td>
-            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 7px; color: #000;">${movement.storageLocation}</td>
+            <td style="border: 1px solid #000; padding: 5px; font-size: 9px; color: #000;">${movement.materialDescription || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: right; font-size: 10px; font-weight: bold; color: #000;">${movement.qty}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 10px; color: #000;">${movement.unidadDeMedida || '-'}</td>
+            <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 9px; color: #000;">${movement.storageLocation}</td>
           </tr>
         `;
       }).join('');
@@ -111,18 +113,19 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
     const generateEquipmentTitle = (equipmentName, totalQty) => `
       <div style="margin-bottom: 4px; padding: 2px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="font-size: 12px; font-weight: bold;">${equipmentName}</h2>
+          <h2 style="font-size: 13px; font-weight: bold;">${equipmentName}</h2>
         </div>
       </div>
     `;
 
     // Helper function to generate equipment table
+    // UPDATED: Base font size 10px
     const generateEquipmentTable = (equipmentName, movementsList) => {
       const totalQty = Math.abs(movementsList.reduce((sum, m) => sum + m.qty, 0));
       
       return `
         ${generateEquipmentTitle(equipmentName, totalQty)}
-        <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 15px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 15px;">
           ${generateTableHeader()}
           <tbody>
             ${generateTableRows(movementsList)}
@@ -142,9 +145,10 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
     let pageNumber = 1;
 
     // Helper function to estimate table height in pixels
+    // UPDATED: Increased rowHeight estimation to account for larger font (25 -> 35)
     const estimateTableHeight = (numRows) => {
-      const headerHeight = 80; // Title + header row
-      const rowHeight = 25; // Approximate row height
+      const headerHeight = 90; // Title + header row (slightly taller)
+      const rowHeight = 35; // Increased row height for 10px font
       const marginHeight = 30; // Bottom margin
       return headerHeight + (numRows * rowHeight) + marginHeight;
     };
@@ -180,7 +184,7 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
           ${generateHeader()}
           ${htmlContent}
           <div style="margin-top: 40px; font-size: 9px; color: #000; display: flex; justify-content: space-between;">
-            <div>Generado el: ${new Date().toLocaleString('es-ES')}</div>
+            <div>Generado el: ${new Date().toLocaleString('es-ES')} / Encargado de control de inventario: Marco Meza</div>
             <div>Página ${pageNum} de ${totalPages}</div>
           </div>
         </div>
@@ -190,7 +194,7 @@ export const generateINV01ActualPdf = async (movements, startDate, endDate) => {
       document.body.appendChild(tempDiv);
 
       // ZOOM FIX: Calculate scale based on devicePixelRatio for consistency
-      const targetScale = 1.5;
+      const targetScale = 2;
       const normalizedScale = targetScale / window.devicePixelRatio;
 
       const canvas = await html2canvas(tempDiv, {
