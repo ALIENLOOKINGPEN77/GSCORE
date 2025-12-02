@@ -197,7 +197,15 @@ export default function INV01Modal({ material, onClose }: INV01ModalProps) {
             <Package size={28} className="text-blue-600" />
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Detalles de Inventario</h2>
-              <p className="text-sm text-gray-600 mt-1 font-mono">{material.codigo}</p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-sm text-gray-600 font-mono">
+                  <span className="text-xs text-gray-500">Código ISO:</span> {material.documentId}
+                </p>
+                <span className="text-gray-300">|</span>
+                <p className="text-sm text-gray-600 font-mono">
+                  <span className="text-xs text-gray-500">Código Interno:</span> {material.codigo}
+                </p>
+              </div>
             </div>
           </div>
           <button
